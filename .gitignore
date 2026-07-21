@@ -1,3 +1,5 @@
 .vite/
 build/
 dist/
+
+node_modules
