@@ -9,6 +9,17 @@
   reconstruct files in `src/components/ui`.
 - Build pages from small, reusable React components in `src/components`. Keep
   component definitions at module scope and pass data through props.
+- Combine shadcn primitives to create enhanced, reusable components when a
+  recurring product interaction needs a clearer API than its individual parts.
+  Keep CLI-generated primitives in `src/components/ui` and put composed product
+  components in `src/components`.
+- Enhanced components should delegate behavior and accessibility to their shadcn
+  primitives, expose data and state through props, and avoid duplicating
+  primitive internals. Prefer controlled props when the parent owns the state.
+- Use
+  [`src/components/searchable-select.tsx`](src/components/searchable-select.tsx)
+  as the reference pattern: it composes the generated shadcn `Combobox` parts
+  into a typed, searchable select without reimplementing combobox behavior.
 - Style application code only with Tailwind utility classes in `className`.
 - Do not add inline `style` props, CSS modules, CSS-in-JS, styled components, or
   handwritten CSS selectors and declarations.

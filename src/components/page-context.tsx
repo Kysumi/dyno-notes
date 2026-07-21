@@ -1,12 +1,20 @@
 import { ChevronRight, FileText, Link, MoreHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
+import { SearchableSelect } from "@/components/searchable-select.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
+
+const collections = [
+  { value: "journal", label: "Journal" },
+  { value: "projects", label: "Projects" },
+  { value: "reference", label: "Reference" },
+  { value: "archive", label: "Archive" },
+];
 
 function ContextSection({
   title,
@@ -76,6 +84,8 @@ function BacklinkCard({
 }
 
 export function PageContext() {
+  const [collection, setCollection] = useState<string | null>("journal");
+
   return (
     <aside className="hidden min-h-0 border-l bg-stone-100/60 xl:block">
       <ScrollArea className="h-full">
@@ -144,6 +154,20 @@ export function PageContext() {
             >
               “Daily notes are where rough project ideas begin.”
             </BacklinkCard>
+          </ContextSection>
+
+          <Separator />
+
+          <ContextSection title="Collection">
+            <SearchableSelect
+              options={collections}
+              value={collection}
+              onValueChange={setCollection}
+              placeholder="Choose a collection…"
+              emptyMessage="No collections found."
+              aria-label="Page collection"
+              clearable
+            />
           </ContextSection>
 
           <Separator />
