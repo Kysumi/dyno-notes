@@ -18,7 +18,18 @@ const CHANGE_SCRIPT =
   'window.dispatchEvent(new Event("dyno:workspace-change"))';
 const WATCHER_ERROR_SCRIPT =
   'window.dispatchEvent(new Event("dyno:watcher-error"))';
-const FLUSH_SCRIPT = "globalThis.__dynoFlush ? globalThis.__dynoFlush() : true";
+const FLUSH_SCRIPT = `
+  (async () => {
+    try {
+      if (globalThis.__dynoFlush) {
+        await globalThis.__dynoFlush();
+      }
+      await fetch('/api/windowReadyToClose', { method: 'POST', body: '[]' });
+    } catch (error) {
+      console.error("Could not flush the active note", error);
+    }
+  })();
+`;
 const contentTypes: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -71,6 +82,13 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
   notesBacklinks: async (input: Parameters<Workspace["backlinks"]>[0]) =>
     (await requireWorkspace()).backlinks(input),
   notesSearch: async (query: string) => (await requireWorkspace()).search(query),
+  windowReadyToClose: async () => {
+    allowingClose = true;
+    watcher?.close();
+    win.close();
+    await server.shutdown();
+    return true;
+  },
 };
 
 function json(data: unknown, init?: ResponseInit): Response {
@@ -156,16 +174,8 @@ let allowingClose = false;
 win.addEventListener("close", (event) => {
   if (allowingClose) return;
   event.preventDefault();
-  void (async () => {
-    try {
-      if (await win.executeJs(FLUSH_SCRIPT) !== true) return;
-    } catch (error) {
-      console.error("Could not flush the active note", error);
-      return;
-    }
-    allowingClose = true;
-    watcher?.close();
-    win.close();
-    await server.shutdown();
-  })();
+  void win.executeJs(FLUSH_SCRIPT).catch((error) => {
+    console.error("Failed to execute flush script", error);
+  });
 });
+
