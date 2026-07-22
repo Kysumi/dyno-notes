@@ -23,11 +23,6 @@ const targetableBlocks = [
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
-    wikiLink: {
-      insertWikiLink: (
-        attributes: { target: string; label?: string },
-      ) => ReturnType;
-    };
     blockIdentity: {
       ensureBlockId: () => ReturnType;
     };
@@ -68,8 +63,6 @@ export const WikiLink = Node.create({
         href: "#",
         "data-wiki-target": target,
         title: target,
-        class:
-          "cursor-pointer rounded-sm text-emerald-800 underline decoration-emerald-800/30 underline-offset-2",
       }),
       label,
     ];
@@ -105,19 +98,6 @@ export const WikiLink = Node.create({
     const target = String(node.attrs?.target ?? "");
     const label = node.attrs?.label ? `|${node.attrs.label}` : "";
     return `[[${target}${label}]]`;
-  },
-
-  addCommands() {
-    return {
-      insertWikiLink: (attributes) => ({ commands }) =>
-        commands.insertContent({
-          type: this.name,
-          attrs: {
-            target: attributes.target,
-            label: attributes.label || null,
-          },
-        }),
-    };
   },
 
   addInputRules() {

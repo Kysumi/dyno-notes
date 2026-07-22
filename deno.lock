@@ -10,6 +10,7 @@
     "npm:@tiptap/markdown@^3.28.0": "3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0",
     "npm:@tiptap/react@^3.28.0": "3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0_@types+react@19.2.17_@types+react-dom@19.2.3__@types+react@19.2.17_react@19.2.7_react-dom@19.2.7__react@19.2.7_@floating-ui+dom@1.8.0",
     "npm:@tiptap/starter-kit@^3.28.0": "3.28.0",
+    "npm:@tiptap/suggestion@^3.28.0": "3.28.0_@floating-ui+dom@1.8.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0",
     "npm:@types/react-dom@^19.2.3": "19.2.3_@types+react@19.2.17",
     "npm:@types/react@^19.2.17": "19.2.17",
     "npm:@vitejs/plugin-react@^6.0.3": "6.0.3_vite@8.1.3",
@@ -1875,6 +1876,14 @@
         "@tiptap/extension-text",
         "@tiptap/extension-underline",
         "@tiptap/extensions",
+        "@tiptap/pm"
+      ]
+    },
+    "@tiptap/suggestion@3.28.0_@floating-ui+dom@1.8.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0": {
+      "integrity": "sha512-24k0CvvazBeHAK2+WrV1n0uDBZBHNbDAq1K8b5KkWSxcAU7zSCytmApS1u7clRW5wg2xKNBdDhNhvk7KSm1kIA==",
+      "dependencies": [
+        "@floating-ui/dom",
+        "@tiptap/core",
         "@tiptap/pm"
       ]
     },
@@ -3755,6 +3764,7 @@
         "npm:@tiptap/markdown@^3.28.0",
         "npm:@tiptap/react@^3.28.0",
         "npm:@tiptap/starter-kit@^3.28.0",
+        "npm:@tiptap/suggestion@^3.28.0",
         "npm:@types/react-dom@^19.2.3",
         "npm:@types/react@^19.2.17",
         "npm:@vitejs/plugin-react@^6.0.3",

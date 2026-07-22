@@ -18,6 +18,9 @@ type SearchableSelectProps = {
   options: readonly SearchableSelectOption[];
   value: string | null;
   onValueChange: (value: string | null) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  autoFocus?: boolean;
   placeholder?: string;
   emptyMessage?: string;
   disabled?: boolean;
@@ -30,6 +33,9 @@ export function SearchableSelect({
   options,
   value,
   onValueChange,
+  open,
+  onOpenChange,
+  autoFocus,
   placeholder = "Select an option…",
   emptyMessage = "No options found.",
   disabled = false,
@@ -45,11 +51,14 @@ export function SearchableSelect({
       items={options}
       value={selectedOption}
       onValueChange={(option) => onValueChange(option?.value ?? null)}
+      open={open}
+      onOpenChange={onOpenChange}
       itemToStringLabel={(option) => option.label}
       itemToStringValue={(option) => option.value}
       isItemEqualToValue={(option, selected) => option.value === selected.value}
     >
       <ComboboxInput
+        autoFocus={autoFocus}
         aria-label={ariaLabel}
         placeholder={placeholder}
         disabled={disabled}

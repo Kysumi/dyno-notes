@@ -1,5 +1,14 @@
-import type { Editor } from "@tiptap/core";
-import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import { type Editor, Extension } from "@tiptap/core";
+import {
+  EditorContent,
+  ReactRenderer,
+  useEditor,
+  useEditorState,
+} from "@tiptap/react";
+import Suggestion, {
+  exitSuggestion,
+  type SuggestionProps,
+} from "@tiptap/suggestion";
 import {
   Bold,
   Braces,
@@ -16,7 +25,7 @@ import {
   Quote,
   Strikethrough,
 } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { useEditorRuntime, useNotes } from "@/components/notes-provider.tsx";
 import { SearchableSelect } from "@/components/searchable-select.tsx";
@@ -60,6 +69,7 @@ import {
   noteTarget,
   parseWikiTarget,
 } from "@/lib/markdown-scanner.ts";
+import "./note-editor.css";
 
 function ToolbarButton({
   label,
@@ -130,9 +140,106 @@ function setWikiStates(
   }
 }
 
+type WikiLinkPickerProps = {
+  notes: NoteSummary[];
+  onSelect(note: NoteSummary): void;
+  onClose(): void;
+};
+
+function WikiLinkPicker({ notes, onSelect, onClose }: WikiLinkPickerProps) {
+  const selected = useRef(false);
+
+  return (
+    <SearchableSelect
+      options={notes.map((note) => ({ value: note.id, label: note.title }))}
+      value={null}
+      onValueChange={(id) => {
+        const note = notes.find((candidate) => candidate.id === id);
+        if (note) {
+          selected.current = true;
+          onSelect(note);
+        }
+      }}
+      open
+      onOpenChange={(open) => {
+        if (!open && !selected.current) onClose();
+      }}
+      autoFocus
+      placeholder="Search pages…"
+      emptyMessage="No pages found."
+      className="w-72 bg-popover shadow-lg"
+      aria-label="Search pages to link"
+    />
+  );
+}
+
+function wikiLinkSuggestion(getNotes: () => NoteSummary[]) {
+  return Extension.create({
+    name: "wikiLinkSuggestion",
+
+    addProseMirrorPlugins() {
+      return [Suggestion<NoteSummary, NoteSummary>({
+        editor: this.editor,
+        char: "[[",
+        allowedPrefixes: null,
+        decorationClass: "wiki-link-query",
+        decorationContent: "]]",
+        dismissOnOutsideClick: false,
+        command: ({ editor, range, props }) => {
+          editor.chain().focus().insertContentAt(range, {
+            type: "wikiLink",
+            attrs: {
+              target: noteTarget(props.id),
+              label: props.title,
+            },
+          }).run();
+        },
+        render: () => {
+          let component: ReactRenderer<unknown, WikiLinkPickerProps> | null =
+            null;
+          let unmount: (() => void) | null = null;
+          const pickerProps = (
+            props: SuggestionProps<NoteSummary, NoteSummary>,
+          ): WikiLinkPickerProps => ({
+            notes: getNotes(),
+            onSelect: props.command,
+            onClose: () => {
+              exitSuggestion(props.editor.view);
+              props.editor.chain().focus().insertContentAt(
+                props.range,
+                "[[]]",
+              ).setTextSelection(props.range.from + 2).run();
+            },
+          });
+
+          return {
+            onStart: (props) => {
+              component = new ReactRenderer<unknown, WikiLinkPickerProps>(
+                WikiLinkPicker,
+                {
+                  editor: props.editor,
+                  props: pickerProps(props),
+                  className: "z-50",
+                },
+              );
+              unmount = props.mount(component.element);
+            },
+            onUpdate: (props) => component?.updateProps(pickerProps(props)),
+            onExit: () => {
+              unmount?.();
+              component?.destroy();
+              unmount = null;
+              component = null;
+            },
+          };
+        },
+      })];
+    },
+  });
+}
+
 function EditorToolbar({ editor }: { editor: Editor }) {
-  const { draft, noteId, notes, reportError } = useEditorRuntime();
-  const [page, setPage] = useState<string | null>(null);
+  const { draft, noteId, reportError } = useEditorRuntime();
   const state = useEditorState({
     editor,
     selector: ({ editor }) => ({
@@ -268,26 +375,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       >
         <Braces />
       </ToolbarButton>
-      <div className="ml-auto flex min-w-48 items-center gap-1">
-        <SearchableSelect
-          options={notes.map((summary) => ({
-            value: summary.id,
-            label: summary.title,
-          }))}
-          value={page}
-          onValueChange={(id) => {
-            setPage(id);
-            const summary = notes.find((candidate) => candidate.id === id);
-            if (!summary) return;
-            editor.chain().focus().insertWikiLink({
-              target: noteTarget(summary.id),
-              label: summary.title,
-            }).run();
-            setPage(null);
-          }}
-          placeholder="Link a page…"
-          aria-label="Insert page link"
-        />
+      <div className="ml-auto">
         <ToolbarButton
           label="Copy block link"
           onClick={() => void copyBlockLink()}
@@ -378,8 +466,14 @@ const WysiwygEditor = memo(function WysiwygEditor() {
     reportError,
   } = useEditorRuntime();
   const wrapper = useRef<HTMLDivElement>(null);
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const suggestion = useMemo(
+    () => wikiLinkSuggestion(() => notesRef.current),
+    [],
+  );
   const editor = useEditor({
-    extensions: editorExtensions(),
+    extensions: [...editorExtensions(), suggestion],
     content: draft().content,
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
@@ -389,7 +483,7 @@ const WysiwygEditor = memo(function WysiwygEditor() {
     },
     editorProps: {
       attributes: {
-        class: "tiptap min-h-[32rem] px-1 py-5 outline-none",
+        class: "tiptap",
         "aria-label": "Note body",
       },
     },
@@ -440,7 +534,7 @@ const WysiwygEditor = memo(function WysiwygEditor() {
       onKeyDown={(event) => {
         if (event.key === "Enter") openWikiLink(event);
       }}
-      className="[&_.tiptap_a[data-wiki-state=ambiguous]]:text-amber-700 [&_.tiptap_a[data-wiki-state=unresolved]]:text-destructive [&_.tiptap_blockquote]:my-4 [&_.tiptap_blockquote]:border-l-2 [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:text-muted-foreground [&_.tiptap_code]:rounded [&_.tiptap_code]:bg-stone-100 [&_.tiptap_code]:px-1 [&_.tiptap_code]:font-mono [&_.tiptap_code]:text-xs [&_.tiptap_h2]:mt-8 [&_.tiptap_h2]:mb-3 [&_.tiptap_h2]:font-serif [&_.tiptap_h2]:text-2xl [&_.tiptap_h2]:font-semibold [&_.tiptap_h3]:mt-6 [&_.tiptap_h3]:mb-2 [&_.tiptap_h3]:font-serif [&_.tiptap_h3]:text-xl [&_.tiptap_li]:my-1 [&_.tiptap_ol]:my-4 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_p]:my-3 [&_.tiptap_pre]:my-4 [&_.tiptap_pre]:overflow-x-auto [&_.tiptap_pre]:rounded-md [&_.tiptap_pre]:bg-stone-900 [&_.tiptap_pre]:p-4 [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-xs [&_.tiptap_pre]:text-stone-100 [&_.tiptap_ul]:my-4 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ul[data-type=taskList]]:list-none [&_.tiptap_ul[data-type=taskList]]:pl-0 [&_.tiptap_ul[data-type=taskList]_li]:flex [&_.tiptap_ul[data-type=taskList]_li]:gap-2 [&_.tiptap_ul[data-type=taskList]_li>div]:min-w-0 [&_.tiptap_ul[data-type=taskList]_li>div]:flex-1"
+      className="tiptap-editor"
     >
       <EditorToolbar editor={editor} />
       <EditorContent editor={editor} />
@@ -498,7 +592,7 @@ export function NoteEditor() {
   }
 
   return (
-    <main className="min-w-0 overflow-y-auto bg-white">
+    <main className="min-w-0 overflow-y-auto bg-stone-50/40">
       <div className="mx-auto w-full max-w-3xl px-6 pt-10 pb-24 sm:px-10 sm:pt-14">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -543,9 +637,8 @@ export function NoteEditor() {
                 value={draft.title}
                 onChange={(event) => changeTitle(event.target.value)}
                 aria-label="Note title"
-                className="h-auto border-0 px-0 font-serif text-4xl font-medium tracking-tight shadow-none focus-visible:ring-0 sm:text-5xl"
+                className="h-auto rounded-none border-0 px-0 py-2 font-serif text-4xl font-semibold leading-tight tracking-[-0.025em] text-stone-950 shadow-none focus-visible:ring-0 sm:text-5xl"
               />
-              <Separator className="mt-6" />
               <WysiwygEditor key={resetKey} />
             </>
           )
