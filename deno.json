@@ -5,9 +5,9 @@
     "dev": "deno run -A npm:vite@8.1.3",
     "build": "deno run -A npm:vite@8.1.3 build",
     "test": "deno test -P=test",
-    "check": "deno check server.ts src/main.tsx && deno lint && deno task test && deno task build",
-    "desktop": "deno task build && deno desktop -P=desktop server.ts",
-    "desktop:dev": "deno desktop -P=desktop --hmr server.ts"
+    "check": "deno check main.ts src/main.tsx && deno lint && deno task test && deno task build",
+    "desktop": "deno task build && deno desktop -P=desktop main.ts",
+    "desktop:dev": "deno desktop -P=desktop --hmr main.ts"
   },
   "compilerOptions": {
     "jsx": "react-jsx",

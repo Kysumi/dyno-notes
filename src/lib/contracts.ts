@@ -58,7 +58,5 @@ export interface DesktopBindings {
 }
 
 declare global {
-  const bindings: DesktopBindings;
-
   var __dynoFlush: (() => Promise<boolean>) | undefined;
 }

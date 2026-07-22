@@ -3,15 +3,9 @@
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { AppError, Workspace } from "./src/host.ts";
-import type { DesktopBindings } from "./src/lib/contracts.ts";
+import { base64ToBytes } from "./src/lib/base64.ts";
 
 interface DesktopWindow extends EventTarget {
-  bind<K extends keyof DesktopBindings>(
-    name: K,
-    handler: (
-      ...args: Parameters<DesktopBindings[K]>
-    ) => ReturnType<DesktopBindings[K]>,
-  ): void;
   close(): void;
   executeJs(script: string): Promise<unknown>;
 }
@@ -51,51 +45,58 @@ async function requireWorkspace(): Promise<Workspace> {
   throw startupError!;
 }
 
-function safe<TArgs extends unknown[], TResult>(
-  handler: (...args: TArgs) => TResult | Promise<TResult>,
-): (...args: TArgs) => Promise<TResult> {
-  return async (...args) => {
-    try {
-      return await handler(...args);
-    } catch (error) {
-      console.error(error);
-      if (error instanceof AppError) throw error;
-      throw new AppError("InvalidInput", "The request could not be completed.");
-    }
-  };
-}
-
 const win = new BrowserWindow({
   title: "Dyno Notes",
   width: 1280,
   height: 800,
 });
-win.bind(
-  "workspaceInfo",
-  safe(async () => ({ path: (await requireWorkspace()).path })),
-);
-win.bind("notesList", safe(async () => (await requireWorkspace()).list()));
-win.bind("notesRead", safe(async (id) => (await requireWorkspace()).read(id)));
-win.bind(
-  "notesCreate",
-  safe(async (input) => (await requireWorkspace()).create(input)),
-);
-win.bind(
-  "notesSave",
-  safe(async (input) => (await requireWorkspace()).save(input)),
-);
-win.bind(
-  "notesImport",
-  safe(async (files) => (await requireWorkspace()).import(files)),
-);
-win.bind(
-  "notesBacklinks",
-  safe(async (input) => (await requireWorkspace()).backlinks(input)),
-);
-win.bind(
-  "notesSearch",
-  safe(async (query) => (await requireWorkspace()).search(query)),
-);
+
+type ImportFilePayload = { name: string; bytes: string };
+
+// All renderer <-> host calls go over plain fetch(), not Deno Desktop's
+// win.bind() bridge: the bridge's per-window callback registration races the
+// webview's own page load and can leave a binding unavailable indefinitely.
+const api: Record<string, (...args: never[]) => Promise<unknown>> = {
+  workspaceInfo: async () => ({ path: (await requireWorkspace()).path }),
+  notesList: async () => (await requireWorkspace()).list(),
+  notesRead: async (id: string) => (await requireWorkspace()).read(id),
+  notesCreate: async (input: Parameters<Workspace["create"]>[0]) =>
+    (await requireWorkspace()).create(input),
+  notesSave: async (input: Parameters<Workspace["save"]>[0]) =>
+    (await requireWorkspace()).save(input),
+  notesImport: async (files: ImportFilePayload[]) =>
+    (await requireWorkspace()).import(
+      files.map((file) => ({ name: file.name, bytes: base64ToBytes(file.bytes) })),
+    ),
+  notesBacklinks: async (input: Parameters<Workspace["backlinks"]>[0]) =>
+    (await requireWorkspace()).backlinks(input),
+  notesSearch: async (query: string) => (await requireWorkspace()).search(query),
+};
+
+function json(data: unknown, init?: ResponseInit): Response {
+  return new Response(JSON.stringify(data), {
+    ...init,
+    headers: { "content-type": "application/json", ...init?.headers },
+  });
+}
+
+async function serveApi(request: Request, name: string): Promise<Response> {
+  const handler = api[name];
+  if (!handler) return json({ ok: false, message: "Unknown API route." }, { status: 404 });
+  try {
+    const args = request.method === "POST" ? await request.json() : [];
+    const result = await handler(...(Array.isArray(args) ? args : []) as never[]);
+    return json({ ok: true, result });
+  } catch (error) {
+    console.error(error);
+    const appError = error instanceof AppError
+      ? error
+      : new AppError("InvalidInput", "The request could not be completed.");
+    return json({ ok: false, name: appError.name, message: appError.message }, {
+      status: 400,
+    });
+  }
+}
 
 let watcher: Deno.FsWatcher | undefined;
 void workspacePromise.then((workspace) => {
@@ -112,6 +113,9 @@ async function serve(request: Request): Promise<Response> {
     pathname = decodeURIComponent(new URL(request.url).pathname);
   } catch {
     return new Response("Bad request", { status: 400 });
+  }
+  if (pathname.startsWith("/api/")) {
+    return serveApi(request, pathname.slice("/api/".length));
   }
   const requested = pathname === "/" || !extname(pathname)
     ? "index.html"

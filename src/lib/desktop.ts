@@ -1,41 +1,48 @@
 import type { DesktopBindings } from "./contracts.ts";
+import { bytesToBase64 } from "./base64.ts";
 
-function host(): DesktopBindings {
-  const desktopBindings =
-    (globalThis as typeof globalThis & { bindings?: DesktopBindings }).bindings;
-  if (!desktopBindings) {
-    const error = new Error("Run `deno task desktop:dev` to use Dyno Notes.");
+interface ApiEnvelope<TResult> {
+  ok: boolean;
+  result?: TResult;
+  name?: string;
+  message?: string;
+}
+
+async function call<TResult>(name: string, args: unknown[]): Promise<TResult> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/${name}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(args),
+    });
+  } catch {
+    const error = new Error("Dyno Notes could not reach its local server.");
     error.name = "DesktopUnavailable";
     throw error;
   }
-  return desktopBindings;
-}
-
-async function call<TResult>(
-  operation: () => Promise<TResult>,
-): Promise<TResult> {
-  try {
-    return await operation();
-  } catch (value) {
-    if (value instanceof Error) throw value;
-    const source = value as { name?: unknown; message?: unknown };
+  const payload = await response.json() as ApiEnvelope<TResult>;
+  if (!payload.ok) {
     const error = new Error(
-      typeof source?.message === "string"
-        ? source.message
-        : "The request could not be completed.",
+      payload.message ?? "The request could not be completed.",
     );
-    if (typeof source?.name === "string") error.name = source.name;
+    if (payload.name) error.name = payload.name;
     throw error;
   }
+  return payload.result as TResult;
 }
 
 export const desktop: DesktopBindings = {
-  workspaceInfo: () => call(() => host().workspaceInfo()),
-  notesList: () => call(() => host().notesList()),
-  notesRead: (id) => call(() => host().notesRead(id)),
-  notesCreate: (input) => call(() => host().notesCreate(input)),
-  notesSave: (input) => call(() => host().notesSave(input)),
-  notesImport: (files) => call(() => host().notesImport(files)),
-  notesBacklinks: (input) => call(() => host().notesBacklinks(input)),
-  notesSearch: (query) => call(() => host().notesSearch(query)),
+  workspaceInfo: () => call("workspaceInfo", []),
+  notesList: () => call("notesList", []),
+  notesRead: (id) => call("notesRead", [id]),
+  notesCreate: (input) => call("notesCreate", [input]),
+  notesSave: (input) => call("notesSave", [input]),
+  notesImport: (files) =>
+    call(
+      "notesImport",
+      [files.map((file) => ({ name: file.name, bytes: bytesToBase64(file.bytes) }))],
+    ),
+  notesBacklinks: (input) => call("notesBacklinks", [input]),
+  notesSearch: (query) => call("notesSearch", [query]),
 };
