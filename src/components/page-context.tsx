@@ -1,193 +1,158 @@
-import { ChevronRight, FileText, Link, MoreHorizontal } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import type { JSONContent } from "@tiptap/core";
+import { ChevronRight, FileText, Link } from "lucide-react";
 
-import { SearchableSelect } from "@/components/searchable-select.tsx";
+import { useNotes } from "@/components/notes-provider.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
+import { scanMarkdown } from "@/lib/markdown-scanner.ts";
 
-const collections = [
-  { value: "journal", label: "Journal" },
-  { value: "projects", label: "Projects" },
-  { value: "reference", label: "Reference" },
-  { value: "archive", label: "Archive" },
-];
-
-function ContextSection({
-  title,
-  count,
-  children,
-}: {
-  title: string;
-  count?: number;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-        <span>{title}</span>
-        {count === undefined
-          ? (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label={`${title} options`}
-            >
-              <MoreHorizontal />
-            </Button>
-          )
-          : (
-            <Badge variant="secondary" className="px-1.5 text-[10px]">
-              {count}
-            </Badge>
-          )}
-      </div>
-      {children}
-    </section>
-  );
+function text(node: JSONContent): string {
+  return node.text ?? (node.content ?? []).map(text).join(" ");
 }
 
-function BacklinkCard({
-  href,
-  icon: Icon,
-  title,
-  children,
-}: {
-  href: string;
-  icon: LucideIcon;
-  title: string;
-  children: string;
-}) {
-  return (
-    <Card className="gap-0 py-0 shadow-none transition-colors hover:border-emerald-800/40">
-      <Button
-        asChild
-        variant="ghost"
-        className="h-auto w-full justify-start whitespace-normal p-0 text-left"
-      >
-        <a href={href}>
-          <CardContent className="w-full space-y-1.5 p-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold">
-              <Icon className="size-3.5 text-emerald-800" /> {title}
-            </div>
-            <p className="font-serif text-xs leading-5 text-muted-foreground">
-              {children}
-            </p>
-          </CardContent>
-        </a>
-      </Button>
-    </Card>
-  );
+function visit(node: JSONContent, callback: (node: JSONContent) => void): void {
+  callback(node);
+  for (const child of node.content ?? []) visit(child, callback);
 }
 
 export function PageContext() {
-  const [collection, setCollection] = useState<string | null>("journal");
+  const { note, notes, draft, backlinks, openNote } = useNotes();
+  if (!note) {
+    return <aside className="hidden border-l bg-stone-100/60 xl:block" />;
+  }
+
+  const headings: Array<{ title: string; level: number }> = [];
+  let words = 0;
+  let links = 0;
+  if (draft.mode === "source") {
+    const scanned = scanMarkdown(draft.source);
+    words = scanned.wordCount;
+    links = scanned.links.length;
+  } else {
+    visit(draft.content, (node) => {
+      if (node.type === "heading") {
+        headings.push({
+          title: text(node),
+          level: Number(node.attrs?.level ?? 2),
+        });
+      }
+      if (node.type === "text") {
+        words += node.text?.trim().split(/\s+/u).filter(Boolean).length ?? 0;
+      }
+      if (node.type === "wikiLink") links++;
+    });
+  }
+  const summary = notes.find((candidate) => candidate.id === note.id);
 
   return (
     <aside className="hidden min-h-0 border-l bg-stone-100/60 xl:block">
       <ScrollArea className="h-full">
-        <div className="space-y-7 p-4">
-          <ContextSection title="Outline">
+        <div className="space-y-6 p-4">
+          <section className="space-y-2">
+            <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+              Outline
+            </p>
             <nav className="grid" aria-label="Page outline">
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start font-normal"
-              >
-                <a href="#focus">
-                  <ChevronRight />Focus<Badge
+              {headings.length
+                ? headings.map((heading, index) => (
+                  <Button
+                    key={`${heading.title}-${index}`}
                     variant="ghost"
-                    className="ml-auto"
+                    size="sm"
+                    className={heading.level > 2
+                      ? "w-full justify-start pl-6 font-normal"
+                      : "w-full justify-start font-normal"}
+                    onClick={() =>
+                      document.querySelectorAll<HTMLElement>(
+                        ".tiptap h2, .tiptap h3, .tiptap h4, .tiptap h5, .tiptap h6",
+                      )[index]
+                        ?.scrollIntoView({ block: "center" })}
                   >
-                    3
-                  </Badge>
-                </a>
-              </Button>
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start font-normal"
-              >
-                <a href="#thoughts">
-                  <ChevronRight />Morning thoughts<Badge
-                    variant="ghost"
-                    className="ml-auto"
-                  >
-                    3
-                  </Badge>
-                </a>
-              </Button>
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start font-normal"
-              >
-                <a href="#desk">
-                  <ChevronRight />On the desk<Badge
-                    variant="ghost"
-                    className="ml-auto"
-                  >
-                    1
-                  </Badge>
-                </a>
-              </Button>
+                    <ChevronRight />{" "}
+                    <span className="truncate">{heading.title}</span>
+                  </Button>
+                ))
+                : (
+                  <p className="px-2 text-xs text-muted-foreground">
+                    No headings
+                  </p>
+                )}
             </nav>
-          </ContextSection>
+          </section>
 
           <Separator />
 
-          <ContextSection title="Linked references" count={2}>
-            <BacklinkCard href="#weekly" icon={FileText} title="Weekly review">
-              “…return to today’s journal and choose the one thing that
-              matters.”
-            </BacklinkCard>
-            <BacklinkCard
-              href="#project-orbit"
-              icon={Link}
-              title="Project Orbit"
-            >
-              “Daily notes are where rough project ideas begin.”
-            </BacklinkCard>
-          </ContextSection>
+          <section className="space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+              <span>Linked references</span>
+              <Badge variant="secondary" className="px-1.5 text-[10px]">
+                {backlinks.length}
+              </Badge>
+            </div>
+            {backlinks.length
+              ? backlinks.map((backlink, index) => (
+                <Card
+                  key={`${backlink.sourceId}-${index}`}
+                  className="gap-0 py-0 shadow-none"
+                >
+                  <Button
+                    variant="ghost"
+                    className="h-auto w-full justify-start whitespace-normal p-0 text-left"
+                    onClick={() =>
+                      void openNote(
+                        backlink.sourceId,
+                        backlink.sourceBlockId ?? undefined,
+                      )}
+                  >
+                    <CardContent className="w-full space-y-1.5 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold">
+                        {backlink.targetBlockId ? <Link /> : <FileText />}{" "}
+                        {backlink.sourceTitle}
+                      </div>
+                      <p className="font-serif text-xs leading-5 text-muted-foreground">
+                        {backlink.excerpt}
+                      </p>
+                    </CardContent>
+                  </Button>
+                </Card>
+              ))
+              : <p className="text-xs text-muted-foreground">No backlinks</p>}
+          </section>
 
           <Separator />
 
-          <ContextSection title="Collection">
-            <SearchableSelect
-              options={collections}
-              value={collection}
-              onValueChange={setCollection}
-              placeholder="Choose a collection…"
-              emptyMessage="No collections found."
-              aria-label="Page collection"
-              clearable
-            />
-          </ContextSection>
-
-          <Separator />
-
-          <ContextSection title="Page">
+          <section className="space-y-2">
+            <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+              Page
+            </p>
             <dl className="grid gap-2 text-xs">
+              <div>
+                <dt className="text-muted-foreground">Path</dt>
+                <dd className="break-all font-mono">{note.id}</dd>
+              </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Created</dt>
-                <dd>Today</dd>
+                <dt className="text-muted-foreground">Modified</dt>
+                <dd>
+                  {summary ? new Date(summary.updatedAt).toLocaleString() : "—"}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Words</dt>
-                <dd>86</dd>
+                <dd>{words}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Links</dt>
-                <dd>3</dd>
+                <dt className="text-muted-foreground">Outgoing links</dt>
+                <dd>{links}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Backlinks</dt>
+                <dd>{backlinks.length}</dd>
               </div>
             </dl>
-          </ContextSection>
+          </section>
         </div>
       </ScrollArea>
     </aside>
