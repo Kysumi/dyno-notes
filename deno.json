@@ -26,7 +26,7 @@
     "test": {
       "read": true,
       "write": true,
-      "env": ["HOME", "USERPROFILE"]
+      "env": ["HOME", "USERPROFILE", "NODE_ENV"]
     }
   },
   "desktop": {
@@ -43,6 +43,7 @@
   "imports": {
     "@/": "./src/",
     "@/components/ui/button": "./src/components/ui/button.tsx",
+    "@/components/ui/dialog": "./src/components/ui/dialog.tsx",
     "@/components/ui/input": "./src/components/ui/input.tsx",
     "@/components/ui/input-group": "./src/components/ui/input-group.tsx",
     "@/components/ui/textarea": "./src/components/ui/textarea.tsx",

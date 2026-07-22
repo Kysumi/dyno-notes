@@ -6,9 +6,12 @@ import {
   nodeInputRule,
 } from "@tiptap/core";
 import { Markdown } from "@tiptap/markdown";
+import { ReactNodeViewRenderer } from "@tiptap/react";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
+
+import { TldrawNodeView } from "@/components/tldraw-node-view.tsx";
 
 import { WIKI_LINK_SOURCE } from "./markdown-scanner.ts";
 
@@ -23,8 +26,16 @@ const targetableBlocks = [
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
+    wikiLink: {
+      insertWikiLink: (
+        attributes: { target: string; label?: string },
+      ) => ReturnType;
+    };
     blockIdentity: {
       ensureBlockId: () => ReturnType;
+    };
+    tldraw: {
+      insertTldraw: () => ReturnType;
     };
   }
 }
@@ -112,6 +123,65 @@ export const WikiLink = Node.create({
   },
 });
 
+export const TldrawExtension = Node.create({
+  name: "tldraw",
+  priority: 1100,
+  group: "block",
+  atom: true,
+
+  addAttributes() {
+    return {
+      source: { default: null },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: "tldraw" }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["tldraw", mergeAttributes(HTMLAttributes)];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(TldrawNodeView);
+  },
+
+  addCommands() {
+    return {
+      insertTldraw: () => ({ commands }) =>
+        commands.insertContent({
+          type: this.name,
+          attrs: { source: "{}" },
+        }),
+    };
+  },
+
+  markdownTokenizer: {
+    name: "tldraw",
+    level: "block",
+    start: (source) => source.indexOf("```tldraw"),
+    tokenize: (source) => {
+      const match = /^```tldraw\r?\n([\s\S]*?)\r?\n```/.exec(source);
+      if (!match) return undefined;
+      return {
+        type: "tldraw",
+        raw: match[0],
+        source: match[1],
+      };
+    },
+  },
+
+  parseMarkdown: (token, helpers) =>
+    helpers.createNode("tldraw", {
+      source: token.source,
+    }),
+
+  renderMarkdown: (node) => {
+    return `\`\`\`tldraw\n${node.attrs?.source || ""}\n\`\`\`\n`;
+  },
+});
+
 export const BlockIdentity = Extension.create({
   name: "blockIdentity",
 
@@ -141,7 +211,7 @@ export function editorExtensions() {
     StarterKit.configure({
       horizontalRule: false,
       link: {
-        openOnClick: true,
+        openOnClick: false,
         HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
       },
       trailingNode: false,
@@ -150,6 +220,7 @@ export function editorExtensions() {
     TaskList,
     TaskItem.configure({ nested: true }),
     WikiLink,
+    TldrawExtension,
     BlockIdentity,
     Markdown,
   ];

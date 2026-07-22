@@ -22,6 +22,7 @@ import {
   ListChecks,
   ListOrdered,
   Pilcrow,
+  Presentation,
   Quote,
   Strikethrough,
 } from "lucide-react";
@@ -375,6 +376,13 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       >
         <Braces />
       </ToolbarButton>
+      <Separator orientation="vertical" className="mx-1 h-6" />
+      <ToolbarButton
+        label="Insert Whiteboard"
+        onClick={() => editor.chain().focus().insertTldraw().run()}
+      >
+        <Presentation />
+      </ToolbarButton>
       <div className="ml-auto">
         <ToolbarButton
           label="Copy block link"
@@ -512,12 +520,14 @@ const WysiwygEditor = memo(function WysiwygEditor() {
   const openWikiLink = (event: {
     target: EventTarget | null;
     preventDefault(): void;
+    stopPropagation(): void;
   }) => {
     const link = (event.target as HTMLElement).closest<HTMLElement>(
       "a[data-wiki-target]",
     );
     if (!link) return;
     event.preventDefault();
+    event.stopPropagation();
     if (link.dataset.wikiState !== "resolved") {
       reportError(
         `This page link is ${link.dataset.wikiState ?? "unresolved"}.`,
@@ -530,8 +540,8 @@ const WysiwygEditor = memo(function WysiwygEditor() {
   return (
     <div
       ref={wrapper}
-      onClick={openWikiLink}
-      onKeyDown={(event) => {
+      onClickCapture={openWikiLink}
+      onKeyDownCapture={(event) => {
         if (event.key === "Enter") openWikiLink(event);
       }}
       className="tiptap-editor"
@@ -637,7 +647,6 @@ export function NoteEditor() {
                 value={draft.title}
                 onChange={(event) => changeTitle(event.target.value)}
                 aria-label="Note title"
-                className="h-auto rounded-none border-0 px-0 py-2 font-serif text-4xl font-semibold leading-tight tracking-[-0.025em] text-stone-950 shadow-none focus-visible:ring-0 sm:text-5xl"
               />
               <WysiwygEditor key={resetKey} />
             </>

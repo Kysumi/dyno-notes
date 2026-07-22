@@ -73,6 +73,10 @@ interface NavigationContextValue {
   workspacePath: string;
   notes: NoteSummary[];
   noteId: NoteId | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  goBack(): Promise<boolean>;
+  goForward(): Promise<boolean>;
   openNote(id: NoteId, blockId?: string): Promise<boolean>;
   createPage(title: string): Promise<boolean>;
   importFiles(files: File[]): Promise<string[]>;
@@ -101,6 +105,20 @@ const NavigationContext = createContext<NavigationContextValue | null>(null);
 const EditorRuntimeContext = createContext<EditorRuntimeContextValue | null>(
   null,
 );
+
+interface NavigationHistory {
+  entries: Array<{ id: NoteId; blockId?: string }>;
+  index: number;
+}
+
+export function pushNavigationHistory(
+  history: NavigationHistory,
+  entry: NavigationHistory["entries"][number],
+): NavigationHistory {
+  if (history.entries[history.index]?.id === entry.id) return history;
+  const entries = [...history.entries.slice(0, history.index + 1), entry];
+  return { entries, index: entries.length - 1 };
+}
 
 function today(): string {
   const date = new Date();
@@ -141,11 +159,18 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   >(null);
   const [changeTick, setChangeTick] = useState(0);
   const [retryTick, setRetryTick] = useState(0);
+  const [navigationHistory, setNavigationHistory] = useState<NavigationHistory>(
+    {
+      entries: [],
+      index: -1,
+    },
+  );
 
   const draftRef = useRef(draft);
   const noteRef = useRef(note);
   const activeIdRef = useRef<NoteId | null>(null);
   const coordinatorRef = useRef<SaveCoordinator | null>(null);
+  const navigationHistoryRef = useRef(navigationHistory);
 
   if (!coordinatorRef.current) {
     coordinatorRef.current = new SaveCoordinator({
@@ -272,6 +297,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         setWorkspacePath(info.path);
         setNotes(await desktop.notesList());
         applyFile(file);
+        const initialHistory = { entries: [{ id: file.id }], index: 0 };
+        navigationHistoryRef.current = initialHistory;
+        setNavigationHistory(initialHistory);
       } catch (failure) {
         if (!cancelled) setError(message(failure));
       } finally {
@@ -324,6 +352,16 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
+  const recordNavigation = useCallback((id: NoteId, blockId?: string) => {
+    const next = pushNavigationHistory(navigationHistoryRef.current, {
+      id,
+      blockId,
+    });
+    if (next === navigationHistoryRef.current) return;
+    navigationHistoryRef.current = next;
+    setNavigationHistory(next);
+  }, []);
+
   const openNote = useCallback(async (id: NoteId, blockId?: string) => {
     if (id === activeIdRef.current) {
       if (blockId) {
@@ -336,7 +374,25 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     }
     if (!await saveNow()) return false;
     try {
-      applyFile(await desktop.notesRead(id), blockId);
+      const file = await desktop.notesRead(id);
+      applyFile(file, blockId);
+      recordNavigation(file.id, blockId);
+      return true;
+    } catch (failure) {
+      setError(message(failure));
+      return false;
+    }
+  }, [applyFile, recordNavigation, saveNow]);
+
+  const moveHistory = useCallback(async (offset: -1 | 1) => {
+    const targetIndex = navigationHistoryRef.current.index + offset;
+    const target = navigationHistoryRef.current.entries[targetIndex];
+    if (!target || !await saveNow()) return false;
+    try {
+      applyFile(await desktop.notesRead(target.id), target.blockId);
+      const next = { ...navigationHistoryRef.current, index: targetIndex };
+      navigationHistoryRef.current = next;
+      setNavigationHistory(next);
       return true;
     } catch (failure) {
       setError(message(failure));
@@ -370,12 +426,13 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       const file = await desktop.notesCreate({ kind: "page", title });
       setNotes(await desktop.notesList());
       applyFile(file);
+      recordNavigation(file.id);
       return true;
     } catch (failure) {
       setError(message(failure));
       return false;
     }
-  }, [applyFile, saveNow]);
+  }, [applyFile, recordNavigation, saveNow]);
 
   const importFiles = useCallback(async (files: File[]) => {
     const failures: string[] = [];
@@ -510,10 +567,24 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     workspacePath,
     notes,
     noteId: note?.id ?? null,
+    canGoBack: navigationHistory.index > 0,
+    canGoForward:
+      navigationHistory.index < navigationHistory.entries.length - 1,
+    goBack: () => moveHistory(-1),
+    goForward: () => moveHistory(1),
     openNote,
     createPage,
     importFiles,
-  }), [workspacePath, notes, note?.id, openNote, createPage, importFiles]);
+  }), [
+    workspacePath,
+    notes,
+    note?.id,
+    navigationHistory,
+    moveHistory,
+    openNote,
+    createPage,
+    importFiles,
+  ]);
 
   const editorRuntime = useMemo<EditorRuntimeContextValue>(() => ({
     notes,

@@ -1,27 +1,63 @@
-import { Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  FilePlus2,
+  FileText,
+  Search,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { useNavigation } from "@/components/notes-provider.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Card } from "@/components/ui/card.tsx";
-import { Input } from "@/components/ui/input.tsx";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from "@/components/ui/command.tsx";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.tsx";
 import type { SearchResult } from "@/lib/contracts.ts";
 import { desktop } from "@/lib/desktop.ts";
 
-export function AppHeader() {
-  const { openNote, workspacePath } = useNavigation();
+function CommandPalette() {
+  const { notes, openNote, createPage } = useNavigation();
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
-  const input = useRef<HTMLInputElement>(null);
+  const title = query.trim();
+  const pages: SearchResult[] = title ? results : notes
+    .filter((note) => note.kind === "page")
+    .map((note) => ({ id: note.id, title: note.title, excerpt: "" }));
 
   useEffect(() => {
-    if (!query.trim()) {
+    const down = (event: KeyboardEvent) => {
+      if (
+        ["k", "p"].includes(event.key.toLowerCase()) &&
+        (event.metaKey || event.ctrlKey)
+      ) {
+        event.preventDefault();
+        setOpen((current) => !current);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
+
+  useEffect(() => {
+    if (!title) {
       setResults([]);
       return;
     }
     let cancelled = false;
     const timer = setTimeout(() => {
-      void desktop.notesSearch(query).then((found) => {
+      void desktop.notesSearch(title).then((found) => {
         if (!cancelled) setResults(found);
       }).catch(() => {
         if (!cancelled) setResults([]);
@@ -31,72 +67,164 @@ export function AppHeader() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [title]);
 
   const close = () => {
+    setOpen(false);
     setQuery("");
-    setResults([]);
-    document.querySelector<HTMLElement>("[contenteditable=true]")?.focus();
   };
 
   return (
-    <header className="col-span-full grid grid-cols-[1fr_auto] items-center gap-4 border-b bg-stone-50/95 px-3 [-webkit-app-region:drag] sm:grid-cols-[1fr_minmax(16rem,34rem)_1fr]">
-      <div className="flex items-center gap-2">
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 justify-center bg-white/70 text-xs font-normal text-muted-foreground shadow-xs sm:w-full sm:justify-between [-webkit-app-region:no-drag]"
+        aria-label="Search or create a page"
+        onClick={() => setOpen(true)}
+      >
+        <span className="flex items-center gap-2">
+          <Search />
+          <span className="hidden sm:inline">Search or create a page</span>
+        </span>
+        <kbd className="hidden rounded border bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] sm:block">
+          ⌘K / ⌘P
+        </kbd>
+      </Button>
+
+      <CommandDialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) setQuery("");
+        }}
+        title="Search or create a page"
+        description="Search your notes or create a page from the entered title."
+        className="border-emerald-950/20 shadow-2xl sm:max-w-xl"
+      >
+        <CommandInput
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Search pages or type a new title…"
+          maxLength={200}
+        />
+        <CommandList className="max-h-[min(24rem,60vh)]">
+          <CommandEmpty>No pages found.</CommandEmpty>
+          {pages.length
+            ? (
+              <CommandGroup heading={title ? "Search results" : "Pages"}>
+                {pages.map((page) => (
+                  <CommandItem
+                    key={page.id}
+                    value={page.id}
+                    keywords={[page.title, page.excerpt]}
+                    onSelect={() => {
+                      void openNote(page.id).then((opened) => {
+                        if (opened) close();
+                      });
+                    }}
+                  >
+                    <FileText />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {page.title}
+                      </span>
+                      {page.excerpt
+                        ? (
+                          <span className="block truncate text-xs font-normal text-muted-foreground">
+                            {page.excerpt}
+                          </span>
+                        )
+                        : null}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )
+            : null}
+          {title
+            ? (
+              <CommandGroup heading="Create">
+                <CommandItem
+                  value={`Create new page ${title}`}
+                  onSelect={() => {
+                    void createPage(title).then((created) => {
+                      if (created) close();
+                    });
+                  }}
+                >
+                  <FilePlus2 className="text-emerald-800" />
+                  <span className="min-w-0 truncate">
+                    Create <strong className="font-medium">“{title}”</strong>
+                  </span>
+                  <CommandShortcut>↵</CommandShortcut>
+                </CommandItem>
+              </CommandGroup>
+            )
+            : null}
+        </CommandList>
+        <div className="flex items-center justify-end gap-3 border-t bg-stone-50 px-3 py-2 font-mono text-[10px] text-muted-foreground">
+          <span>↑↓ navigate</span>
+          <span>↵ open</span>
+          <span>esc close</span>
+        </div>
+      </CommandDialog>
+    </>
+  );
+}
+
+export function AppHeader() {
+  const {
+    canGoBack,
+    canGoForward,
+    goBack,
+    goForward,
+    workspacePath,
+  } = useNavigation();
+
+  return (
+    <header className="col-span-full grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 border-b bg-stone-50/95 px-3 [-webkit-app-region:drag] sm:grid-cols-[1fr_minmax(16rem,34rem)_1fr]">
+      <div className="flex items-center gap-2 [-webkit-app-region:no-drag]">
         <span className="grid size-7 place-items-center rounded-lg bg-emerald-900 font-serif text-base font-bold text-stone-50">
           D
         </span>
         <span className="hidden font-semibold tracking-tight sm:inline">
           Dyno Notes
         </span>
+        <div className="ml-1 flex items-center">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Go back"
+                disabled={!canGoBack}
+                onClick={() => void goBack()}
+              >
+                <ArrowLeft />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Back</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Go forward"
+                disabled={!canGoForward}
+                onClick={() => void goForward()}
+              >
+                <ArrowRight />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Forward</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
-      <div className="relative hidden sm:block [-webkit-app-region:no-drag]">
-        <Search className="pointer-events-none absolute top-2 left-3 z-10 size-4 text-muted-foreground" />
-        <Input
-          ref={input}
-          aria-label="Search notes"
-          placeholder="Search notes…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") close();
-          }}
-          className="h-8 bg-white/70 pl-9 text-xs shadow-xs"
-        />
-        {query.trim()
-          ? (
-            <Card className="absolute top-10 z-50 max-h-80 w-full gap-0 overflow-y-auto py-1 shadow-lg">
-              {results.length
-                ? results.map((result) => (
-                  <Button
-                    key={result.id}
-                    variant="ghost"
-                    className="h-auto w-full justify-start whitespace-normal px-3 py-2 text-left"
-                    onClick={() => {
-                      void openNote(result.id).then((opened) => {
-                        if (opened) close();
-                      });
-                    }}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">
-                        {result.title}
-                      </span>
-                      <span className="block truncate text-xs font-normal text-muted-foreground">
-                        {result.excerpt}
-                      </span>
-                    </span>
-                  </Button>
-                ))
-                : (
-                  <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-                    No matching notes
-                  </p>
-                )}
-            </Card>
-          )
-          : null}
-      </div>
+      <CommandPalette />
 
       <p
         className="truncate text-right font-mono text-[10px] text-muted-foreground"
