@@ -54,11 +54,14 @@ Deno.test("desktop raises a named error when the API reports failure", () =>
   withFetch(
     () => json({ ok: false, name: "NotFound", message: "gone" }, 400),
     async () => {
-      await rejects(() => desktop.notesRead("pages/a.md"), (error: unknown) => {
-        equal((error as Error).name, "NotFound");
-        equal((error as Error).message, "gone");
-        return true;
-      });
+      await rejects(
+        () => desktop.notesRead("pages/a.md"),
+        (error: unknown) => {
+          equal((error as Error).name, "NotFound");
+          equal((error as Error).message, "gone");
+          return true;
+        },
+      );
     },
   ));
 
@@ -68,9 +71,12 @@ Deno.test("desktop raises DesktopUnavailable when the server can't be reached", 
       throw new TypeError("network error");
     },
     async () => {
-      await rejects(() => desktop.notesList(), (error: unknown) => {
-        equal((error as Error).name, "DesktopUnavailable");
-        return true;
-      });
+      await rejects(
+        () => desktop.notesList(),
+        (error: unknown) => {
+          equal((error as Error).name, "DesktopUnavailable");
+          return true;
+        },
+      );
     },
   ));

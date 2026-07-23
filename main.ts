@@ -10,9 +10,11 @@ interface DesktopWindow extends EventTarget {
   executeJs(script: string): Promise<unknown>;
 }
 
-const BrowserWindow = (Deno as unknown as {
-  BrowserWindow: new (options?: Record<string, unknown>) => DesktopWindow;
-}).BrowserWindow;
+const BrowserWindow = (
+  Deno as unknown as {
+    BrowserWindow: new (options?: Record<string, unknown>) => DesktopWindow;
+  }
+).BrowserWindow;
 
 const CHANGE_SCRIPT =
   'window.dispatchEvent(new Event("dyno:workspace-change"))';
@@ -40,15 +42,18 @@ const contentTypes: Record<string, string> = {
 };
 
 let startupError: AppError | undefined;
-const workspacePromise = Promise.resolve().then(() => Workspace.open()).catch(
-  (error) => {
+const workspacePromise = Promise.resolve()
+  .then(() => Workspace.open())
+  .catch((error) => {
     console.error("Workspace startup failed", error);
-    startupError = error instanceof AppError ? error : new AppError(
-      "WorkspaceUnavailable",
-      "The Dyno Notes workspace could not be opened.",
-    );
-  },
-);
+    startupError =
+      error instanceof AppError
+        ? error
+        : new AppError(
+            "WorkspaceUnavailable",
+            "The Dyno Notes workspace could not be opened.",
+          );
+  });
 
 async function requireWorkspace(): Promise<Workspace> {
   const workspace = await workspacePromise;
@@ -75,8 +80,7 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
     (await requireWorkspace()).create(input),
   notesSave: async (input: Parameters<Workspace["save"]>[0]) =>
     (await requireWorkspace()).save(input),
-  notesDelete: async (id: string) =>
-    (await requireWorkspace()).delete(id),
+  notesDelete: async (id: string) => (await requireWorkspace()).delete(id),
   notesImport: async (files: ImportFilePayload[]) =>
     (await requireWorkspace()).import(
       files.map((file) => ({
@@ -113,17 +117,21 @@ async function serveApi(request: Request, name: string): Promise<Response> {
   try {
     const args = request.method === "POST" ? await request.json() : [];
     const result = await handler(
-      ...(Array.isArray(args) ? args : []) as never[],
+      ...((Array.isArray(args) ? args : []) as never[]),
     );
     return json({ ok: true, result });
   } catch (error) {
     console.error(error);
-    const appError = error instanceof AppError
-      ? error
-      : new AppError("InvalidInput", "The request could not be completed.");
-    return json({ ok: false, name: appError.name, message: appError.message }, {
-      status: 400,
-    });
+    const appError =
+      error instanceof AppError
+        ? error
+        : new AppError("InvalidInput", "The request could not be completed.");
+    return json(
+      { ok: false, name: appError.name, message: appError.message },
+      {
+        status: 400,
+      },
+    );
   }
 }
 
@@ -146,9 +154,8 @@ async function serve(request: Request): Promise<Response> {
   if (pathname.startsWith("/api/")) {
     return serveApi(request, pathname.slice("/api/".length));
   }
-  const requested = pathname === "/" || !extname(pathname)
-    ? "index.html"
-    : pathname.slice(1);
+  const requested =
+    pathname === "/" || !extname(pathname) ? "index.html" : pathname.slice(1);
   const path = resolve(dist, requested);
   const pathFromDist = relative(dist, path);
   if (pathFromDist.startsWith("..") || isAbsolute(pathFromDist)) {
@@ -160,8 +167,8 @@ async function serve(request: Request): Promise<Response> {
     if (request.method === "HEAD") file.close();
     return new Response(request.method === "HEAD" ? null : file.readable, {
       headers: {
-        "content-type": contentTypes[extname(path)] ??
-          "application/octet-stream",
+        "content-type":
+          contentTypes[extname(path)] ?? "application/octet-stream",
       },
     });
   } catch (error) {

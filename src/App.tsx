@@ -18,14 +18,14 @@ const SETTINGS_PATH = "/settings";
 
 function AppContent() {
   const { activePageView } = useNavigation();
-  return activePageView
-    ? <PageView key={activePageView.id} view={activePageView} />
-    : (
-      <>
-        <NoteEditor />
-        <PageContext />
-      </>
-    );
+  return activePageView ? (
+    <PageView key={activePageView.id} view={activePageView} />
+  ) : (
+    <>
+      <NoteEditor />
+      <PageContext />
+    </>
+  );
 }
 
 function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
@@ -74,21 +74,19 @@ function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
   return (
     <TooltipProvider>
       <NotesProvider>
-        {path === SETTINGS_PATH
-          ? (
-            <SettingsPage
-              appearance={appearance}
-              onClose={closeSettings}
-              onSave={saveAppearance}
-            />
-          )
-          : (
-            <div className="grid h-screen grid-cols-1 grid-rows-[3.25rem_minmax(0,1fr)] overflow-hidden bg-background text-foreground md:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
-              <AppHeader />
-              <AppSidebar onOpenSettings={openSettings} />
-              <AppContent />
-            </div>
-          )}
+        {path === SETTINGS_PATH ? (
+          <SettingsPage
+            appearance={appearance}
+            onClose={closeSettings}
+            onSave={saveAppearance}
+          />
+        ) : (
+          <div className="grid h-screen grid-cols-1 grid-rows-[3.25rem_minmax(0,1fr)] overflow-hidden bg-background text-foreground md:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
+            <AppHeader />
+            <AppSidebar onOpenSettings={openSettings} />
+            <AppContent />
+          </div>
+        )}
       </NotesProvider>
     </TooltipProvider>
   );

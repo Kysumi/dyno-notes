@@ -52,7 +52,8 @@ const previewColors = {
 } as const;
 
 function AppearancePreview({ settings }: { settings: AppearanceSettings }) {
-  const dark = settings.scheme === "dark" ||
+  const dark =
+    settings.scheme === "dark" ||
     (settings.scheme === "system" &&
       matchMedia("(prefers-color-scheme: dark)").matches);
 
@@ -233,9 +234,9 @@ function AppearanceSettingsPanel({
                     )}
                   />
                   <span>{name}</span>
-                  {settings.colorway === id
-                    ? <Check className="ml-auto" />
-                    : null}
+                  {settings.colorway === id ? (
+                    <Check className="ml-auto" />
+                  ) : null}
                 </Button>
               ))}
             </CardContent>
@@ -263,8 +264,8 @@ function AppearanceSettingsPanel({
           {saveStatus === "saved"
             ? "Settings saved"
             : saveStatus === "error"
-            ? "Settings could not be saved"
-            : null}
+              ? "Settings could not be saved"
+              : null}
         </span>
         <Button onClick={onSave}>Save changes</Button>
       </div>
@@ -314,13 +315,13 @@ function ImportSettingsPanel() {
             multiple
             onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
           />
-          {failures.length
-            ? (
-              <ul className="list-disc space-y-1 pl-5 text-sm text-destructive">
-                {failures.map((failure) => <li key={failure}>{failure}</li>)}
-              </ul>
-            )
-            : null}
+          {failures.length ? (
+            <ul className="list-disc space-y-1 pl-5 text-sm text-destructive">
+              {failures.map((failure) => (
+                <li key={failure}>{failure}</li>
+              ))}
+            </ul>
+          ) : null}
           <div className="flex justify-end">
             <Button
               disabled={!files.length || importing}
@@ -404,16 +405,16 @@ export function SettingsPage({
           </p>
         </aside>
         <ScrollArea className="min-h-0">
-          {section === "appearance"
-            ? (
-              <AppearanceSettingsPanel
-                settings={draft}
-                saveStatus={saveStatus}
-                onChange={change}
-                onSave={save}
-              />
-            )
-            : <ImportSettingsPanel />}
+          {section === "appearance" ? (
+            <AppearanceSettingsPanel
+              settings={draft}
+              saveStatus={saveStatus}
+              onChange={change}
+              onSave={save}
+            />
+          ) : (
+            <ImportSettingsPanel />
+          )}
         </ScrollArea>
       </div>
     </main>

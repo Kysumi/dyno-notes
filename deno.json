@@ -5,7 +5,10 @@
     "dev": "deno run -A npm:vite@8.1.3",
     "build": "deno run -A npm:vite@8.1.3 build",
     "test": "deno test -P=test",
-    "check": "deno check main.ts src/main.tsx && deno lint && deno task test && deno task build",
+    "lint": "deno run -A npm:oxlint@1.75.0",
+    "fmt": "deno run -A npm:oxfmt@0.60.0",
+    "fmt:check": "deno run -A npm:oxfmt@0.60.0 --check",
+    "check": "deno check main.ts src/main.tsx && deno task lint && deno task fmt:check && deno task test && deno task build",
     "desktop": "deno task build && deno desktop -P=desktop main.ts",
     "desktop:dev": "deno desktop -P=desktop --hmr main.ts"
   },
@@ -13,9 +16,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "lib": ["DOM", "DOM.Iterable", "ESNext", "deno.ns"]
-  },
-  "lint": {
-    "exclude": ["src/components/ui/"]
   },
   "permissions": {
     "desktop": {

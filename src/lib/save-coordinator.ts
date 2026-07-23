@@ -1,9 +1,4 @@
-export type SaveStatus =
-  | "saved"
-  | "saving"
-  | "unsaved"
-  | "conflict"
-  | "error";
+export type SaveStatus = "saved" | "saving" | "unsaved" | "conflict" | "error";
 
 export interface SaveSnapshot {
   id: string;

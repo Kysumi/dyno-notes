@@ -106,16 +106,18 @@ export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
       key={id}
       variant="ghost"
       size="sm"
-      className={noteId === id
-        ? "w-full justify-start bg-accent text-accent-foreground hover:bg-accent"
-        : "w-full justify-start font-normal text-muted-foreground"}
+      className={
+        noteId === id
+          ? "w-full justify-start bg-accent text-accent-foreground hover:bg-accent"
+          : "w-full justify-start font-normal text-muted-foreground"
+      }
       onClick={() => void openNote(id)}
     >
-      {icon === "journal"
-        ? <Calendar />
-        : icon === "page"
-        ? <FileText />
-        : null}
+      {icon === "journal" ? (
+        <Calendar />
+      ) : icon === "page" ? (
+        <FileText />
+      ) : null}
       <span className="truncate">{title}</span>
     </Button>
   );
@@ -134,14 +136,19 @@ export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
             </p>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent hover:text-foreground">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                >
                   <Plus className="h-4 w-4" />
                   <span className="sr-only">How to create a view</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent side="right" className="text-sm w-64 space-y-2">
                 <p>
-                  To create a new view, use the <strong>global search</strong> to filter pages, then click <strong>Save as view</strong>.
+                  To create a new view, use the <strong>global search</strong>{" "}
+                  to filter pages, then click <strong>Save as view</strong>.
                 </p>
               </PopoverContent>
             </Popover>
@@ -151,28 +158,27 @@ export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
               <Button
                 variant="ghost"
                 size="sm"
-                className={activePageView?.id === view.id
-                  ? "min-w-0 flex-1 justify-start bg-accent text-accent-foreground hover:bg-accent"
-                  : "min-w-0 flex-1 justify-start font-normal text-muted-foreground"}
-                onClick={() =>
-                  void openPageView(view.id)}
+                className={
+                  activePageView?.id === view.id
+                    ? "min-w-0 flex-1 justify-start bg-accent text-accent-foreground hover:bg-accent"
+                    : "min-w-0 flex-1 justify-start font-normal text-muted-foreground"
+                }
+                onClick={() => void openPageView(view.id)}
               >
                 <ListTodo />
                 <span className="truncate">{view.name}</span>
               </Button>
-              {view.custom
-                ? (
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    aria-label={`Delete ${view.name}`}
-                    onClick={() => deletePageView(view.id)}
-                  >
-                    <Trash2 />
-                  </Button>
-                )
-                : null}
+              {view.custom ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  aria-label={`Delete ${view.name}`}
+                  onClick={() => deletePageView(view.id)}
+                >
+                  <Trash2 />
+                </Button>
+              ) : null}
             </div>
           ))}
           <p className="px-2 pt-5 pb-1 text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">

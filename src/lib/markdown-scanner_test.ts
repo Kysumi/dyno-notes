@@ -15,10 +15,12 @@ Inline \`[[pages/ignored]]\` stays text.
 `);
 
   equal(scanned.title, "Project Orbit");
-  deepStrictEqual(scanned.blocks, [{
-    id: "abcdef123456",
-    excerpt: "Review Weekly Review and .",
-  }]);
+  deepStrictEqual(scanned.blocks, [
+    {
+      id: "abcdef123456",
+      excerpt: "Review Weekly Review and .",
+    },
+  ]);
   deepStrictEqual(
     scanned.links.map(({ target, targetBlockId, sourceBlockId }) => ({
       target,
@@ -64,10 +66,10 @@ before tomorrow. ^abcdef123456
 `);
   equal(scanned.links.length, 1);
   equal(scanned.links[0].sourceBlockId, "abcdef123456");
-  deepStrictEqual(scanned.blocks.map((block) => block.id), [
-    "abcdef123456",
-    "123456abcdef",
-  ]);
+  deepStrictEqual(
+    scanned.blocks.map((block) => block.id),
+    ["abcdef123456", "123456abcdef"],
+  );
   equal(scanned.blocks[1].excerpt, "Code block");
 });
 

@@ -6,7 +6,7 @@ export const colorways = [
   { id: "graphite", name: "Graphite", swatch: "bg-stone-700" },
 ] as const;
 
-export type Colorway = typeof colorways[number]["id"];
+export type Colorway = (typeof colorways)[number]["id"];
 export type ColorScheme = "light" | "dark" | "system";
 
 export interface AppearanceSettings {
@@ -29,7 +29,7 @@ export function parseAppearanceSettings(
   try {
     const parsed = JSON.parse(value);
     return schemes.includes(parsed?.scheme) &&
-        colorways.some(({ id }) => id === parsed?.colorway)
+      colorways.some(({ id }) => id === parsed?.colorway)
       ? parsed
       : defaultAppearance;
   } catch {
@@ -48,7 +48,8 @@ export function saveAppearanceSettings(settings: AppearanceSettings): void {
 }
 
 export function applyAppearanceSettings(settings: AppearanceSettings): void {
-  const dark = settings.scheme === "dark" ||
+  const dark =
+    settings.scheme === "dark" ||
     (settings.scheme === "system" &&
       matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", dark);

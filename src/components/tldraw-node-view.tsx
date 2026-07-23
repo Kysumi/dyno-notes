@@ -56,31 +56,33 @@ export function TldrawNodeView({ node, updateAttributes }: NodeViewProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen]);
 
-  const CustomSharePanel = useCallback(() => (
-    <div className="flex items-center pointer-events-auto mr-2">
-      <Button
-        variant="secondary"
-        size="icon-sm"
-        onClick={() => setIsFullscreen((prev) => !prev)}
-        title={isFullscreen ? "Exit fullscreen (Esc)" : "Enter fullscreen"}
-      >
-        {isFullscreen ? <Minimize2 /> : <Maximize2 />}
-      </Button>
-    </div>
-  ), [isFullscreen]);
+  const CustomSharePanel = useCallback(
+    () => (
+      <div className="flex items-center pointer-events-auto mr-2">
+        <Button
+          variant="secondary"
+          size="icon-sm"
+          onClick={() => setIsFullscreen((prev) => !prev)}
+          title={isFullscreen ? "Exit fullscreen (Esc)" : "Enter fullscreen"}
+        >
+          {isFullscreen ? <Minimize2 /> : <Maximize2 />}
+        </Button>
+      </div>
+    ),
+    [isFullscreen],
+  );
 
   return (
     <NodeViewWrapper>
       <div
         contentEditable={false}
-        className={isFullscreen
-          ? "fixed inset-0 z-50 bg-white"
-          : "relative z-0 my-4 h-[600px] w-full overflow-hidden rounded-lg border"}
+        className={
+          isFullscreen
+            ? "fixed inset-0 z-50 bg-white"
+            : "relative z-0 my-4 h-[600px] w-full overflow-hidden rounded-lg border"
+        }
       >
-        <Tldraw
-          store={store}
-          components={{ SharePanel: CustomSharePanel }}
-        />
+        <Tldraw store={store} components={{ SharePanel: CustomSharePanel }} />
       </div>
     </NodeViewWrapper>
   );

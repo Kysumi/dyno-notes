@@ -38,10 +38,7 @@ Deno.test("supported Markdown is structurally stable across two cycles", () => {
   ok(serialized.includes("^abcdef123456"));
   ok(serialized.includes("^123456abcdef"));
   ok(serialized.includes("```ts"));
-  equal(
-    first.content.content?.[2].content?.[1].attrs?.blockId,
-    "abcdef123456",
-  );
+  equal(first.content.content?.[2].content?.[1].attrs?.blockId, "abcdef123456");
 });
 
 Deno.test("codec preserves EOL detection and task state", () => {

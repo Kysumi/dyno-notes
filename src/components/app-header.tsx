@@ -49,9 +49,11 @@ function displayDate(value: string): Date {
 
 function focusEditor(): void {
   requestAnimationFrame(() =>
-    document.querySelector<HTMLElement>(
-      '[aria-label="Note body"], [aria-label="Markdown source"]',
-    )?.focus()
+    document
+      .querySelector<HTMLElement>(
+        '[aria-label="Note body"], [aria-label="Markdown source"]',
+      )
+      ?.focus(),
   );
 }
 
@@ -61,9 +63,11 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const title = query.trim();
-  const pages: SearchResult[] = title ? results : notes
-    .filter((note) => note.kind === "page")
-    .map((note) => ({ id: note.id, title: note.title, excerpt: "" }));
+  const pages: SearchResult[] = title
+    ? results
+    : notes
+        .filter((note) => note.kind === "page")
+        .map((note) => ({ id: note.id, title: note.title, excerpt: "" }));
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -86,11 +90,14 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
     }
     let cancelled = false;
     const timer = setTimeout(() => {
-      void desktop.notesSearch(title).then((found) => {
-        if (!cancelled) setResults(found);
-      }).catch(() => {
-        if (!cancelled) setResults([]);
-      });
+      void desktop
+        .notesSearch(title)
+        .then((found) => {
+          if (!cancelled) setResults(found);
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        });
     }, 150);
     return () => {
       cancelled = true;
@@ -109,9 +116,11 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
         type="button"
         variant="outline"
         size="sm"
-        className={compact
-          ? "h-8 w-8 justify-center bg-background/70 text-muted-foreground shadow-xs [-webkit-app-region:no-drag]"
-          : "h-8 w-8 justify-center bg-background/70 text-xs font-normal text-muted-foreground shadow-xs sm:w-full sm:justify-between [-webkit-app-region:no-drag]"}
+        className={
+          compact
+            ? "h-8 w-8 justify-center bg-background/70 text-muted-foreground shadow-xs [-webkit-app-region:no-drag]"
+            : "h-8 w-8 justify-center bg-background/70 text-xs font-normal text-muted-foreground shadow-xs sm:w-full sm:justify-between [-webkit-app-region:no-drag]"
+        }
         aria-label="Search or create a page"
         onClick={() => setOpen(true)}
       >
@@ -121,13 +130,11 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
             Search or create a page
           </span>
         </span>
-        {compact
-          ? null
-          : (
-            <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:block">
-              ⌘K / ⌘P
-            </kbd>
-          )}
+        {compact ? null : (
+          <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:block">
+            ⌘K / ⌘P
+          </kbd>
+        )}
       </Button>
 
       <CommandDialog
@@ -148,58 +155,52 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
         />
         <CommandList className="max-h-[min(24rem,60vh)]">
           <CommandEmpty>No pages found.</CommandEmpty>
-          {pages.length
-            ? (
-              <CommandGroup heading={title ? "Search results" : "Pages"}>
-                {pages.map((page) => (
-                  <CommandItem
-                    key={page.id}
-                    value={page.id}
-                    keywords={[page.title, page.excerpt]}
-                    onSelect={() => {
-                      void openNote(page.id).then((opened) => {
-                        if (opened) close();
-                      });
-                    }}
-                  >
-                    <FileText />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">
-                        {page.title}
-                      </span>
-                      {page.excerpt
-                        ? (
-                          <span className="block truncate text-xs font-normal text-muted-foreground">
-                            {page.excerpt}
-                          </span>
-                        )
-                        : null}
-                    </span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )
-            : null}
-          {title
-            ? (
-              <CommandGroup heading="Create">
+          {pages.length ? (
+            <CommandGroup heading={title ? "Search results" : "Pages"}>
+              {pages.map((page) => (
                 <CommandItem
-                  value={`Create new page ${title}`}
+                  key={page.id}
+                  value={page.id}
+                  keywords={[page.title, page.excerpt]}
                   onSelect={() => {
-                    void createPage(title).then((created) => {
-                      if (created) close();
+                    void openNote(page.id).then((opened) => {
+                      if (opened) close();
                     });
                   }}
                 >
-                  <FilePlus2 className="text-primary" />
-                  <span className="min-w-0 truncate">
-                    Create <strong className="font-medium">“{title}”</strong>
+                  <FileText />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      {page.title}
+                    </span>
+                    {page.excerpt ? (
+                      <span className="block truncate text-xs font-normal text-muted-foreground">
+                        {page.excerpt}
+                      </span>
+                    ) : null}
                   </span>
-                  <CommandShortcut>↵</CommandShortcut>
                 </CommandItem>
-              </CommandGroup>
-            )
-            : null}
+              ))}
+            </CommandGroup>
+          ) : null}
+          {title ? (
+            <CommandGroup heading="Create">
+              <CommandItem
+                value={`Create new page ${title}`}
+                onSelect={() => {
+                  void createPage(title).then((created) => {
+                    if (created) close();
+                  });
+                }}
+              >
+                <FilePlus2 className="text-primary" />
+                <span className="min-w-0 truncate">
+                  Create <strong className="font-medium">“{title}”</strong>
+                </span>
+                <CommandShortcut>↵</CommandShortcut>
+              </CommandItem>
+            </CommandGroup>
+          ) : null}
         </CommandList>
         <div className="flex items-center justify-end gap-3 border-t bg-muted/40 px-3 py-2 font-mono text-[10px] text-muted-foreground">
           <span>↑↓ navigate</span>
@@ -216,7 +217,7 @@ function JournalCalendar({ date }: { date: string }) {
   const today = dateValue();
 
   const open = async (value: string) => {
-    if (!await openJournal(value)) return;
+    if (!(await openJournal(value))) return;
     focusEditor();
   };
 
@@ -245,19 +246,21 @@ function JournalCalendar({ date }: { date: string }) {
       <div className="hidden min-w-0 flex-1 grid-cols-7 gap-1 md:grid">
         {weekDates(date).map((value) => {
           const selected = value === date;
-          const hasEntry = notes.some((note) =>
-            note.id === `journals/${value}.md`
+          const hasEntry = notes.some(
+            (note) => note.id === `journals/${value}.md`,
           );
           return (
             <Button
               key={value}
               type="button"
               variant="ghost"
-              className={selected
-                ? "h-10 min-w-0 flex-col gap-0 rounded-lg bg-primary px-1 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                : value === today
-                ? "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-primary ring-1 ring-primary/40"
-                : "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-muted-foreground"}
+              className={
+                selected
+                  ? "h-10 min-w-0 flex-col gap-0 rounded-lg bg-primary px-1 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                  : value === today
+                    ? "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-primary ring-1 ring-primary/40"
+                    : "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-muted-foreground"
+              }
               aria-label={`${journalTitle(value)}${
                 hasEntry ? ", has journal entry" : ""
               }`}
@@ -272,9 +275,11 @@ function JournalCalendar({ date }: { date: string }) {
               </span>
               <span
                 aria-hidden="true"
-                className={hasEntry
-                  ? "size-1.5 rounded-full bg-blue-500 ring-1 ring-white"
-                  : "size-1.5"}
+                className={
+                  hasEntry
+                    ? "size-1.5 rounded-full bg-blue-500 ring-1 ring-white"
+                    : "size-1.5"
+                }
               />
             </Button>
           );
@@ -320,9 +325,11 @@ export function AppHeader() {
           Dyno Notes
         </span>
         <div
-          className={journalDate
-            ? "ml-1 hidden items-center sm:flex"
-            : "ml-1 flex items-center"}
+          className={
+            journalDate
+              ? "ml-1 hidden items-center sm:flex"
+              : "ml-1 flex items-center"
+          }
         >
           <Tooltip>
             <TooltipTrigger asChild>
@@ -355,39 +362,39 @@ export function AppHeader() {
         </div>
       </div>
 
-      {journalDate
-        ? <JournalCalendar date={journalDate} />
-        : <CommandPalette />}
+      {journalDate ? (
+        <JournalCalendar date={journalDate} />
+      ) : (
+        <CommandPalette />
+      )}
 
-      {journalDate
-        ? (
-          <div className="flex items-center justify-end gap-2 [-webkit-app-region:no-drag]">
-            <CommandPalette compact />
-            <Input
-              type="date"
-              value={journalDate}
-              aria-label="Jump to journal date"
-              title="Jump to journal date"
-              className="h-8 w-8 cursor-pointer px-1 text-transparent shadow-xs md:w-32 md:px-2 md:text-foreground [&::-webkit-calendar-picker-indicator]:m-auto"
-              onChange={(event) => {
-                const date = event.target.value;
-                if (date) {
-                  void openJournal(date).then((opened) => {
-                    if (opened) focusEditor();
-                  });
-                }
-              }}
-            />
-          </div>
-        )
-        : (
-          <p
-            className="truncate text-right font-mono text-[10px] text-muted-foreground"
-            title={workspacePath}
-          >
-            {workspacePath}
-          </p>
-        )}
+      {journalDate ? (
+        <div className="flex items-center justify-end gap-2 [-webkit-app-region:no-drag]">
+          <CommandPalette compact />
+          <Input
+            type="date"
+            value={journalDate}
+            aria-label="Jump to journal date"
+            title="Jump to journal date"
+            className="h-8 w-8 cursor-pointer px-1 text-transparent shadow-xs md:w-32 md:px-2 md:text-foreground [&::-webkit-calendar-picker-indicator]:m-auto"
+            onChange={(event) => {
+              const date = event.target.value;
+              if (date) {
+                void openJournal(date).then((opened) => {
+                  if (opened) focusEditor();
+                });
+              }
+            }}
+          />
+        </div>
+      ) : (
+        <p
+          className="truncate text-right font-mono text-[10px] text-muted-foreground"
+          title={workspacePath}
+        >
+          {workspacePath}
+        </p>
+      )}
     </header>
   );
 }

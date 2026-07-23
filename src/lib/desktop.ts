@@ -21,7 +21,7 @@ async function call<TResult>(name: string, args: unknown[]): Promise<TResult> {
     error.name = "DesktopUnavailable";
     throw error;
   }
-  const payload = await response.json() as ApiEnvelope<TResult>;
+  const payload = (await response.json()) as ApiEnvelope<TResult>;
   if (!payload.ok) {
     const error = new Error(
       payload.message ?? "The request could not be completed.",
@@ -40,13 +40,12 @@ export const desktop: DesktopBindings = {
   notesSave: (input) => call("notesSave", [input]),
   notesDelete: (id) => call("notesDelete", [id]),
   notesImport: (files) =>
-    call(
-      "notesImport",
-      [files.map((file) => ({
+    call("notesImport", [
+      files.map((file) => ({
         name: file.name,
         bytes: bytesToBase64(file.bytes),
-      }))],
-    ),
+      })),
+    ]),
   notesBacklinks: (input) => call("notesBacklinks", [input]),
   notesSearch: (query) => call("notesSearch", [query]),
   tasksList: () => call("tasksList", []),

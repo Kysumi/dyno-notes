@@ -37,10 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table.tsx";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group.tsx";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import type { NoteSummary, TaskRecord } from "@/lib/contracts.ts";
 import { desktop } from "@/lib/desktop.ts";
 
@@ -67,9 +64,7 @@ function SortableHeader<T>({
   );
 }
 
-function columns(
-  openNote: (id: string) => void,
-): ColumnDef<NoteSummary>[] {
+function columns(openNote: (id: string) => void): ColumnDef<NoteSummary>[] {
   return [
     {
       accessorKey: "title",
@@ -127,9 +122,13 @@ function columns(
         const open = row.original.openTasks || 0;
         const completed = row.original.completedTasks || 0;
         const total = open + completed;
-        if (total === 0) return <span className="text-muted-foreground">-</span>;
+        if (total === 0)
+          return <span className="text-muted-foreground">-</span>;
         return (
-          <Badge variant={open > 0 ? "default" : "outline"} className="text-[10px]">
+          <Badge
+            variant={open > 0 ? "default" : "outline"}
+            className="text-[10px]"
+          >
             {completed}/{total}
           </Badge>
         );
@@ -149,13 +148,17 @@ function columns(
   ];
 }
 
-function taskColumns(
-  openNote: (id: string) => void,
-): ColumnDef<TaskRecord>[] {
+function taskColumns(openNote: (id: string) => void): ColumnDef<TaskRecord>[] {
   return [
     {
       accessorKey: "noteTitle",
-      header: ({ column }) => <SortableHeader column={column as unknown as Column<TaskRecord, unknown>}>Page</SortableHeader>,
+      header: ({ column }) => (
+        <SortableHeader
+          column={column as unknown as Column<TaskRecord, unknown>}
+        >
+          Page
+        </SortableHeader>
+      ),
       cell: ({ row }) => (
         <Button
           variant="link"
@@ -170,22 +173,38 @@ function taskColumns(
       accessorKey: "text",
       header: "Task",
       cell: ({ row }) => (
-        <span className={row.original.checked ? "line-through text-muted-foreground" : ""}>
+        <span
+          className={
+            row.original.checked ? "line-through text-muted-foreground" : ""
+          }
+        >
           {row.original.text}
         </span>
       ),
     },
     {
       accessorKey: "checked",
-      header: ({ column }) => <SortableHeader column={column as unknown as Column<TaskRecord, unknown>}>Status</SortableHeader>,
+      header: ({ column }) => (
+        <SortableHeader
+          column={column as unknown as Column<TaskRecord, unknown>}
+        >
+          Status
+        </SortableHeader>
+      ),
       cell: ({ row }) => (
-        <span className="capitalize">{row.original.checked ? "Completed" : "Open"}</span>
+        <span className="capitalize">
+          {row.original.checked ? "Completed" : "Open"}
+        </span>
       ),
     },
     {
       accessorKey: "updatedAt",
       header: ({ column }) => (
-        <SortableHeader column={column as unknown as Column<TaskRecord, unknown>}>Updated</SortableHeader>
+        <SortableHeader
+          column={column as unknown as Column<TaskRecord, unknown>}
+        >
+          Updated
+        </SortableHeader>
       ),
       cell: ({ row }) => (
         <span className="text-muted-foreground">
@@ -200,10 +219,13 @@ function queryLabel(filters: PageViewFilters): string {
   const parts: string[] = [];
   if (filters.hasOpenTasks) parts.push(`has open tasks`);
   if (filters.tag) parts.push(`tag = #${filters.tag}`);
-  if (filters.attributeKey) parts.push(`has attribute = ${filters.attributeKey}`);
+  if (filters.attributeKey)
+    parts.push(`has attribute = ${filters.attributeKey}`);
   if (filters.query) parts.push(`title contains “${filters.query}”`);
   const type = filters.showAs === "tasks" ? "TASKS" : "PAGES";
-  return parts.length ? `WHERE ${parts.join("  ·  ")} (${type})` : `ALL ${type}`;
+  return parts.length
+    ? `WHERE ${parts.join("  ·  ")} (${type})`
+    : `ALL ${type}`;
 }
 
 function SaveViewDialog({ filters }: { filters: PageViewFilters }) {
@@ -253,7 +275,9 @@ function SaveViewDialog({ filters }: { filters: PageViewFilters }) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim()}>Save view</Button>
+            <Button type="submit" disabled={!name.trim()}>
+              Save view
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -283,10 +307,16 @@ export function PageView({ view }: { view: PageViewDefinition }) {
       if (filters.tag && !note.tags?.includes(filters.tag)) {
         return false;
       }
-      if (filters.attributeKey && (!note.attributes || !(filters.attributeKey in note.attributes))) {
+      if (
+        filters.attributeKey &&
+        (!note.attributes || !(filters.attributeKey in note.attributes))
+      ) {
         return false;
       }
-      if (filters.query && !note.title.toLowerCase().includes(filters.query.toLowerCase())) {
+      if (
+        filters.query &&
+        !note.title.toLowerCase().includes(filters.query.toLowerCase())
+      ) {
         return false;
       }
       return true;
@@ -296,29 +326,33 @@ export function PageView({ view }: { view: PageViewDefinition }) {
   const filteredTasks = useMemo(() => {
     if (filters.showAs !== "tasks") return [];
     const noteIds = new Set(filteredNotes.map((n) => n.id));
-    return allTasks.filter((task) =>
-      noteIds.has(task.noteId) && (!filters.hasOpenTasks || !task.checked)
+    return allTasks.filter(
+      (task) =>
+        noteIds.has(task.noteId) && (!filters.hasOpenTasks || !task.checked),
     );
-  }, [allTasks, filteredNotes, filters.showAs]);
+  }, [allTasks, filteredNotes, filters.showAs, filters.hasOpenTasks]);
 
   const activeColumns = useMemo(
-    () => filters.showAs === "tasks" ? taskColumns((id) => void openNote(id)) : columns((id) => void openNote(id)),
+    () =>
+      filters.showAs === "tasks"
+        ? taskColumns((id) => void openNote(id))
+        : columns((id) => void openNote(id)),
     [openNote, filters.showAs],
   );
 
   const activeData = filters.showAs === "tasks" ? filteredTasks : filteredNotes;
   const grouping = useMemo(
-    () => filters.showAs === "tasks" ? ["noteTitle"] : [],
+    () => (filters.showAs === "tasks" ? ["noteTitle"] : []),
     [filters.showAs],
   );
 
   const table = useReactTable<NoteSummary | TaskRecord>({
     data: activeData,
     columns: activeColumns as ColumnDef<NoteSummary | TaskRecord>[],
-    state: { 
+    state: {
       sorting,
       grouping,
-      expanded: true
+      expanded: true,
     },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -331,13 +365,21 @@ export function PageView({ view }: { view: PageViewDefinition }) {
   const tagOptions = useMemo(() => {
     const allTags = new Set<string>();
     notes.forEach((n) => n.tags?.forEach((t) => allTags.add(t)));
-    return Array.from(allTags).sort().map((t) => ({ value: t, label: `#${t}` }));
+    return Array.from(allTags)
+      .sort()
+      .map((t) => ({ value: t, label: `#${t}` }));
   }, [notes]);
 
   const attributeOptions = useMemo(() => {
     const allAttrs = new Set<string>();
-    notes.forEach((n) => n.attributes && Object.keys(n.attributes).forEach((k) => allAttrs.add(k)));
-    return Array.from(allAttrs).sort().map((a) => ({ value: a, label: a }));
+    notes.forEach(
+      (n) =>
+        n.attributes &&
+        Object.keys(n.attributes).forEach((k) => allAttrs.add(k)),
+    );
+    return Array.from(allAttrs)
+      .sort()
+      .map((a) => ({ value: a, label: a }));
   }, [notes]);
 
   return (
@@ -369,14 +411,20 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                 setFilters((current) => ({
                   ...current,
                   query: event.target.value,
-                }))}
+                }))
+              }
               placeholder="Filter page title…"
               aria-label="Filter page title"
               maxLength={200}
             />
             <Button
               variant={filters.hasOpenTasks ? "default" : "outline"}
-              onClick={() => setFilters((curr) => ({ ...curr, hasOpenTasks: !curr.hasOpenTasks }))}
+              onClick={() =>
+                setFilters((curr) => ({
+                  ...curr,
+                  hasOpenTasks: !curr.hasOpenTasks,
+                }))
+              }
             >
               Has Open Tasks
             </Button>
@@ -387,7 +435,8 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                 setFilters((current) => ({
                   ...current,
                   tag,
-                }))}
+                }))
+              }
               placeholder="Any tag"
               emptyMessage="No tags found."
               clearable
@@ -400,7 +449,8 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                 setFilters((current) => ({
                   ...current,
                   attributeKey,
-                }))}
+                }))
+              }
               placeholder="Any attribute"
               emptyMessage="No attributes found."
               clearable
@@ -410,7 +460,14 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               variant="ghost"
               size="sm"
               onClick={() =>
-                setFilters({ query: "", hasOpenTasks: false, tag: null, attributeKey: null, showAs: "pages" })}
+                setFilters({
+                  query: "",
+                  hasOpenTasks: false,
+                  tag: null,
+                  attributeKey: null,
+                  showAs: "pages",
+                })
+              }
             >
               <RotateCcw /> Reset
             </Button>
@@ -452,25 +509,35 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
                     <TableHead key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
                     </TableHead>
                   ))}
                 </TableRow>
               ))}
             </TableHeader>
             <TableBody>
-              {rows.length
-                ? rows.map((row) => (
-                  <TableRow key={row.id} className={row.depth > 0 ? "bg-muted/10" : ""}>
+              {rows.length ? (
+                rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className={row.depth > 0 ? "bg-muted/10" : ""}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id} className="first:w-24 last:w-32">
                         {cell.getIsGrouped() ? (
                           <div className="flex items-center font-bold">
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            <span className="ml-2 text-xs text-muted-foreground">({row.subRows.length})</span>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({row.subRows.length})
+                            </span>
                           </div>
                         ) : cell.getIsAggregated() ? null : cell.getIsPlaceholder() ? null : (
                           flexRender(
@@ -482,16 +549,16 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                     ))}
                   </TableRow>
                 ))
-                : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={activeColumns.length}
-                      className="h-32 text-center text-muted-foreground"
-                    >
-                      No pages match this view.
-                    </TableCell>
-                  </TableRow>
-                )}
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={activeColumns.length}
+                    className="h-32 text-center text-muted-foreground"
+                  >
+                    No pages match this view.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

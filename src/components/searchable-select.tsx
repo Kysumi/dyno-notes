@@ -7,6 +7,7 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox.tsx";
 import { cn } from "@/lib/utils.ts";
+import type { ComboboxRootChangeEventReason } from "@base-ui/react/combobox";
 
 export type SearchableSelectOption = {
   value: string;
@@ -19,8 +20,7 @@ type SearchableSelectProps = {
   value: string | null;
   onValueChange: (value: string | null) => void;
   open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  autoFocus?: boolean;
+  onOpenChange?: (open: boolean, reason: ComboboxRootChangeEventReason) => void;
   placeholder?: string;
   emptyMessage?: string;
   disabled?: boolean;
@@ -35,7 +35,6 @@ export function SearchableSelect({
   onValueChange,
   open,
   onOpenChange,
-  autoFocus,
   placeholder = "Select an option…",
   emptyMessage = "No options found.",
   disabled = false,
@@ -43,8 +42,8 @@ export function SearchableSelect({
   className,
   "aria-label": ariaLabel,
 }: SearchableSelectProps) {
-  const selectedOption = options.find((option) => option.value === value) ??
-    null;
+  const selectedOption =
+    options.find((option) => option.value === value) ?? null;
 
   return (
     <Combobox
@@ -52,13 +51,12 @@ export function SearchableSelect({
       value={selectedOption}
       onValueChange={(option) => onValueChange(option?.value ?? null)}
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(open, details) => onOpenChange?.(open, details.reason)}
       itemToStringLabel={(option) => option.label}
       itemToStringValue={(option) => option.value}
       isItemEqualToValue={(option, selected) => option.value === selected.value}
     >
       <ComboboxInput
-        autoFocus={autoFocus}
         aria-label={ariaLabel}
         placeholder={placeholder}
         disabled={disabled}

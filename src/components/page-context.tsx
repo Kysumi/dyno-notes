@@ -56,20 +56,24 @@ export function PageContext() {
               Outline
             </p>
             <nav className="grid" aria-label="Page outline">
-              {headings.length
-                ? headings.map((heading, index) => (
+              {headings.length ? (
+                headings.map((heading, index) => (
                   <Button
                     key={`${heading.title}-${index}`}
                     variant="ghost"
                     size="sm"
-                    className={heading.level > 2
-                      ? "min-w-0 w-full justify-start pl-6 font-normal"
-                      : "min-w-0 w-full justify-start font-normal"}
+                    className={
+                      heading.level > 2
+                        ? "min-w-0 w-full justify-start pl-6 font-normal"
+                        : "min-w-0 w-full justify-start font-normal"
+                    }
                     onClick={() =>
-                      document.querySelectorAll<HTMLElement>(
-                        ".tiptap h2, .tiptap h3, .tiptap h4, .tiptap h5, .tiptap h6",
-                      )[index]
-                        ?.scrollIntoView({ block: "center" })}
+                      document
+                        .querySelectorAll<HTMLElement>(
+                          ".tiptap h2, .tiptap h3, .tiptap h4, .tiptap h5, .tiptap h6",
+                        )
+                        [index]?.scrollIntoView({ block: "center" })
+                    }
                   >
                     <ChevronRight />{" "}
                     <span className="min-w-0 flex-1 truncate text-left">
@@ -77,11 +81,11 @@ export function PageContext() {
                     </span>
                   </Button>
                 ))
-                : (
-                  <p className="px-2 text-xs text-muted-foreground">
-                    No headings
-                  </p>
-                )}
+              ) : (
+                <p className="px-2 text-xs text-muted-foreground">
+                  No headings
+                </p>
+              )}
             </nav>
           </section>
 
@@ -94,8 +98,8 @@ export function PageContext() {
                 {backlinks.length}
               </Badge>
             </div>
-            {backlinks.length
-              ? backlinks.map((backlink, index) => (
+            {backlinks.length ? (
+              backlinks.map((backlink, index) => (
                 <Card
                   key={`${backlink.sourceId}-${index}`}
                   className="gap-0 py-0 shadow-none"
@@ -107,7 +111,8 @@ export function PageContext() {
                       void openNote(
                         backlink.sourceId,
                         backlink.sourceBlockId ?? undefined,
-                      )}
+                      )
+                    }
                   >
                     <CardContent className="w-full space-y-1.5 p-3">
                       <div className="flex items-center gap-1.5 text-xs font-semibold">
@@ -121,7 +126,9 @@ export function PageContext() {
                   </Button>
                 </Card>
               ))
-              : <p className="text-xs text-muted-foreground">No backlinks</p>}
+            ) : (
+              <p className="text-xs text-muted-foreground">No backlinks</p>
+            )}
           </section>
 
           <Separator />

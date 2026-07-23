@@ -37,3 +37,17 @@
 - Never run the app. Always ask the developer to perform runtime or UI checks
   and state exactly what they should verify.
 - The developer runs the app via `deno desktop --hmr main.ts`.
+
+# Linting and formatting
+
+- [oxlint](https://oxc.rs/docs/guide/usage/linter.html) is the linter and
+  [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) is the formatter for
+  this project. Configuration lives in `.oxlintrc.json` and `.oxfmtrc.json`.
+- Run `deno task lint` and `deno task fmt` (or `deno task fmt:check` for a
+  dry run) before finishing a change. `deno task check` runs both plus type
+  checking, tests, and the build.
+- `src/components/ui` is excluded from linting (generated shadcn primitives)
+  but is still formatted.
+- Fix lint findings at the root cause; do not silence a rule to make it pass.
+  If a finding is a deliberate false positive, suppress only that line with an
+  `// oxlint-disable-next-line <rule> -- <reason>` comment.

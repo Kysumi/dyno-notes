@@ -114,7 +114,11 @@ function setUrl(editor: Editor, reportError: (message: string | null) => void) {
     if (!["http:", "https:", "mailto:"].includes(url.protocol)) {
       throw new Error();
     }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url.href })
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href: url.href })
       .run();
   } catch {
     reportError("Use an http, https, or mailto link.");
@@ -127,20 +131,24 @@ function setWikiStates(
   noteId: string | null,
 ): void {
   if (!root) return;
-  for (
-    const link of root.querySelectorAll<HTMLElement>("a[data-wiki-target]")
-  ) {
+  for (const link of root.querySelectorAll<HTMLElement>(
+    "a[data-wiki-target]",
+  )) {
     const parsed = parseWikiTarget(link.dataset.wikiTarget ?? "");
-    const exact = !parsed.target ||
+    const exact =
+      !parsed.target ||
       notes.some((summary) => noteTarget(summary.id) === parsed.target);
-    const matches = notes.filter((summary) =>
-      normalizeSearchText(summary.title) === normalizeSearchText(parsed.target)
+    const matches = notes.filter(
+      (summary) =>
+        normalizeSearchText(summary.title) ===
+        normalizeSearchText(parsed.target),
     ).length;
-    link.dataset.wikiState = (exact && Boolean(noteId)) || matches === 1
-      ? "resolved"
-      : matches > 1
-      ? "ambiguous"
-      : "unresolved";
+    link.dataset.wikiState =
+      (exact && Boolean(noteId)) || matches === 1
+        ? "resolved"
+        : matches > 1
+          ? "ambiguous"
+          : "unresolved";
   }
 }
 
@@ -151,24 +159,18 @@ type WikiLinkPickerProps = {
 };
 
 function WikiLinkPicker({ notes, onSelect, onClose }: WikiLinkPickerProps) {
-  const selected = useRef(false);
-
   return (
     <SearchableSelect
       options={notes.map((note) => ({ value: note.id, label: note.title }))}
       value={null}
       onValueChange={(id) => {
         const note = notes.find((candidate) => candidate.id === id);
-        if (note) {
-          selected.current = true;
-          onSelect(note);
-        }
+        if (note) onSelect(note);
       }}
       open
-      onOpenChange={(open) => {
-        if (!open && !selected.current) onClose();
+      onOpenChange={(open, reason) => {
+        if (!open && reason === "escape-key") onClose();
       }}
-      autoFocus
       placeholder="Search pages…"
       emptyMessage="No pages found."
       className="w-72 bg-popover shadow-lg"
@@ -182,62 +184,85 @@ function wikiLinkSuggestion(getNotes: () => NoteSummary[]) {
     name: "wikiLinkSuggestion",
 
     addProseMirrorPlugins() {
-      return [Suggestion<NoteSummary, NoteSummary>({
-        editor: this.editor,
-        char: "[[",
-        allowedPrefixes: null,
-        decorationClass: "wiki-link-query",
-        decorationContent: "]]",
-        dismissOnOutsideClick: false,
-        command: ({ editor, range, props }) => {
-          editor.chain().focus().insertContentAt(range, {
-            type: "wikiLink",
-            attrs: {
-              target: noteTarget(props.id),
-              label: props.title,
-            },
-          }).run();
-        },
-        render: () => {
-          let component: ReactRenderer<unknown, WikiLinkPickerProps> | null =
-            null;
-          let unmount: (() => void) | null = null;
-          const pickerProps = (
-            props: SuggestionProps<NoteSummary, NoteSummary>,
-          ): WikiLinkPickerProps => ({
-            notes: getNotes(),
-            onSelect: props.command,
-            onClose: () => {
-              exitSuggestion(props.editor.view);
-              props.editor.chain().focus().insertContentAt(
-                props.range,
-                "[[]]",
-              ).setTextSelection(props.range.from + 2).run();
-            },
-          });
-
-          return {
-            onStart: (props) => {
-              component = new ReactRenderer<unknown, WikiLinkPickerProps>(
-                WikiLinkPicker,
-                {
-                  editor: props.editor,
-                  props: pickerProps(props),
-                  className: "z-50",
+      return [
+        Suggestion<NoteSummary, NoteSummary>({
+          editor: this.editor,
+          char: "[[",
+          allowedPrefixes: null,
+          decorationClass: "wiki-link-query",
+          decorationContent: "]]",
+          dismissOnOutsideClick: false,
+          command: ({ editor, range, props }) => {
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(range, {
+                type: "wikiLink",
+                attrs: {
+                  target: noteTarget(props.id),
+                  label: props.title,
                 },
-              );
-              unmount = props.mount(component.element);
-            },
-            onUpdate: (props) => component?.updateProps(pickerProps(props)),
-            onExit: () => {
-              unmount?.();
-              component?.destroy();
-              unmount = null;
-              component = null;
-            },
-          };
-        },
-      })];
+              })
+              .run();
+          },
+          render: () => {
+            let component: ReactRenderer<unknown, WikiLinkPickerProps> | null =
+              null;
+            let unmount: (() => void) | null = null;
+            let stopFocusListener: (() => void) | null = null;
+            const pickerProps = (
+              props: SuggestionProps<NoteSummary, NoteSummary>,
+            ): WikiLinkPickerProps => ({
+              notes: getNotes(),
+              onSelect: props.command,
+              onClose: () => {
+                exitSuggestion(props.editor.view);
+                props.editor
+                  .chain()
+                  .focus()
+                  .insertContentAt(props.range, "[[]]")
+                  .setTextSelection(props.range.from + 2)
+                  .run();
+              },
+            });
+
+            return {
+              onStart: (props) => {
+                component = new ReactRenderer<unknown, WikiLinkPickerProps>(
+                  WikiLinkPicker,
+                  {
+                    editor: props.editor,
+                    props: pickerProps(props),
+                    className: "z-50",
+                  },
+                );
+                unmount = props.mount(component.element);
+                const focusPicker = () =>
+                  component?.element
+                    .querySelector<HTMLInputElement>("input")
+                    ?.focus();
+                props.editor.view.dom.addEventListener("keyup", focusPicker, {
+                  once: true,
+                });
+                stopFocusListener = () =>
+                  props.editor.view.dom.removeEventListener(
+                    "keyup",
+                    focusPicker,
+                  );
+              },
+              onUpdate: (props) => component?.updateProps(pickerProps(props)),
+              onExit: () => {
+                stopFocusListener?.();
+                unmount?.();
+                component?.destroy();
+                stopFocusListener = null;
+                unmount = null;
+                component = null;
+              },
+            };
+          },
+        }),
+      ];
     },
   });
 }
@@ -676,71 +701,63 @@ export function NoteEditor() {
             </div>
             <div className="flex items-center gap-2">
               <Badge
-                variant={status === "conflict" || status === "error"
-                  ? "destructive"
-                  : "outline"}
+                variant={
+                  status === "conflict" || status === "error"
+                    ? "destructive"
+                    : "outline"
+                }
               >
                 {statusLabel[status]}
               </Badge>
               <DeleteDialog />
             </div>
           </div>
-          {draft.mode === "wysiwyg"
-            ? (
-              <Input
-                value={draft.title}
-                onChange={(event) => changeTitle(event.target.value)}
-                aria-label="Note title"
-              />
-            )
-            : null}
+          {draft.mode === "wysiwyg" ? (
+            <Input
+              value={draft.title}
+              onChange={(event) => changeTitle(event.target.value)}
+              aria-label="Note title"
+            />
+          ) : null}
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-3xl px-6 pt-4 pb-24 sm:px-10">
-        {error
-          ? (
-            <Card className="mb-4 gap-0 border-amber-300 bg-amber-50 py-3 shadow-none">
-              <CardContent className="text-sm text-amber-950">
-                {error}
-              </CardContent>
-            </Card>
-          )
-          : null}
+        {error ? (
+          <Card className="mb-4 gap-0 border-amber-300 bg-amber-50 py-3 shadow-none">
+            <CardContent className="text-sm text-amber-950">
+              {error}
+            </CardContent>
+          </Card>
+        ) : null}
 
-        {draft.mode === "wysiwyg"
-          ? <WysiwygEditor key={resetKey} />
-          : (
-            <div className="space-y-3">
-              {draft.unsupportedReasons.length
-                ? (
-                  <Card className="gap-3 border-amber-300 bg-amber-50 py-4 shadow-none">
-                    <CardContent className="space-y-3 text-sm text-amber-950">
-                      <p>
-                        Source mode is protecting{" "}
-                        {draft.unsupportedReasons.join(", ")}{" "}
-                        from a lossy WYSIWYG save.
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={convertSource}
-                      >
-                        Convert to supported Markdown
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )
-                : null}
-              <Textarea
-                value={draft.source}
-                onChange={(event) => changeSource(event.target.value)}
-                aria-label="Markdown source"
-                spellCheck={false}
-                className="min-h-[36rem] resize-y font-mono text-sm leading-6"
-              />
-            </div>
-          )}
+        {draft.mode === "wysiwyg" ? (
+          <WysiwygEditor key={resetKey} />
+        ) : (
+          <div className="space-y-3">
+            {draft.unsupportedReasons.length ? (
+              <Card className="gap-3 border-amber-300 bg-amber-50 py-4 shadow-none">
+                <CardContent className="space-y-3 text-sm text-amber-950">
+                  <p>
+                    Source mode is protecting{" "}
+                    {draft.unsupportedReasons.join(", ")} from a lossy WYSIWYG
+                    save.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={convertSource}>
+                    Convert to supported Markdown
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : null}
+            <Textarea
+              value={draft.source}
+              onChange={(event) => changeSource(event.target.value)}
+              aria-label="Markdown source"
+              spellCheck={false}
+              className="min-h-[36rem] resize-y font-mono text-sm leading-6"
+            />
+          </div>
+        )}
       </div>
       <ConflictDialogs />
     </main>

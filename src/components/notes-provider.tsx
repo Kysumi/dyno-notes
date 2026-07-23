@@ -47,7 +47,13 @@ export interface PageViewDefinition {
 const OPEN_TASKS_VIEW: PageViewDefinition = {
   id: "open-tasks",
   name: "Open tasks",
-  filters: { query: "", hasOpenTasks: true, tag: null, attributeKey: null, showAs: "tasks" },
+  filters: {
+    query: "",
+    hasOpenTasks: true,
+    tag: null,
+    attributeKey: null,
+    showAs: "tasks",
+  },
   custom: false,
 };
 const PAGE_VIEWS_KEY = "dyno.pageViews.v1";
@@ -60,26 +66,36 @@ function storedPageViews(): PageViewDefinition[] {
     return stored.flatMap((view): PageViewDefinition[] => {
       const filters = view?.filters;
       if (
-        typeof view?.id !== "string" || !view.id || view.id.length > 100 ||
-        typeof view?.name !== "string" || !view.name.trim() ||
-        view.name.length > 80 || typeof filters?.query !== "string" ||
+        typeof view?.id !== "string" ||
+        !view.id ||
+        view.id.length > 100 ||
+        typeof view?.name !== "string" ||
+        !view.name.trim() ||
+        view.name.length > 80 ||
+        typeof filters?.query !== "string" ||
         filters.query.length > 200 ||
         typeof filters?.hasOpenTasks !== "boolean" ||
         !(filters?.tag === null || typeof filters?.tag === "string") ||
-        !(filters?.attributeKey === null || typeof filters?.attributeKey === "string")
-      ) return [];
-      return [{
-        id: view.id,
-        name: view.name.trim(),
-        filters: {
-          query: filters.query,
-          hasOpenTasks: filters.hasOpenTasks,
-          tag: filters.tag,
-          attributeKey: filters.attributeKey,
-          showAs: filters.showAs === "tasks" ? "tasks" : "pages",
+        !(
+          filters?.attributeKey === null ||
+          typeof filters?.attributeKey === "string"
+        )
+      )
+        return [];
+      return [
+        {
+          id: view.id,
+          name: view.name.trim(),
+          filters: {
+            query: filters.query,
+            hasOpenTasks: filters.hasOpenTasks,
+            tag: filters.tag,
+            attributeKey: filters.attributeKey,
+            showAs: filters.showAs === "tasks" ? "tasks" : "pages",
+          },
+          custom: true,
         },
-        custom: true,
-      }];
+      ];
     });
   } catch {
     return [];
@@ -231,12 +247,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [conflict, setConflict] = useState<NoteConflict | null>(null);
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
   const [resetKey, setResetKey] = useState(0);
-  const [focusRequest, setFocusRequest] = useState<
-    {
-      blockId: string;
-      nonce: number;
-    } | null
-  >(null);
+  const [focusRequest, setFocusRequest] = useState<{
+    blockId: string;
+    nonce: number;
+  } | null>(null);
   const [changeTick, setChangeTick] = useState(0);
   const [retryTick, setRetryTick] = useState(0);
   const [navigationHistory, setNavigationHistory] = useState<NavigationHistory>(
@@ -286,7 +300,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
             completedTasks: scanned.tasks.filter((t) => t.checked).length,
           };
           return current.some((note) => note.id === snapshot.id)
-            ? current.map((note) => note.id === snapshot.id ? summary : note)
+            ? current.map((note) => (note.id === snapshot.id ? summary : note))
             : [...current, summary];
         });
         void desktop.notesBacklinks({ noteId: snapshot.id }).then(setBacklinks);
@@ -330,9 +344,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     } else {
       setFocusRequest(null);
     }
-    void desktop.notesBacklinks({ noteId: file.id }).then(setBacklinks).catch((
-      failure,
-    ) => setError(message(failure)));
+    void desktop
+      .notesBacklinks({ noteId: file.id })
+      .then(setBacklinks)
+      .catch((failure) => setError(message(failure)));
   }, []);
 
   const refresh = useCallback(async () => {
@@ -344,7 +359,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       if (
         !noteRef.current.revision &&
         !summaries.some((summary) => summary.id === id)
-      ) return;
+      )
+        return;
       const disk = await desktop.notesRead(id);
       if (disk.revision === noteRef.current.revision) return;
       if (coordinatorRef.current!.dirty) {
@@ -453,39 +469,46 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     setNavigationHistory(next);
   }, []);
 
-  const openNote = useCallback(async (id: NoteId, blockId?: string) => {
-    if (id === activeIdRef.current) {
-      setActivePageViewId(null);
-      if (blockId) {
-        setFocusRequest((current) => ({
-          blockId,
-          nonce: (current?.nonce ?? 0) + 1,
-        }));
+  const openNote = useCallback(
+    async (id: NoteId, blockId?: string) => {
+      if (id === activeIdRef.current) {
+        setActivePageViewId(null);
+        if (blockId) {
+          setFocusRequest((current) => ({
+            blockId,
+            nonce: (current?.nonce ?? 0) + 1,
+          }));
+        }
+        return true;
       }
-      return true;
-    }
-    if (!await saveNow()) return false;
-    try {
-      const file = await readNote(id);
-      applyFile(file, blockId);
-      setActivePageViewId(null);
-      recordNavigation(file.id, blockId);
-      return true;
-    } catch (failure) {
-      setError(message(failure));
-      return false;
-    }
-  }, [applyFile, recordNavigation, saveNow]);
+      if (!(await saveNow())) return false;
+      try {
+        const file = await readNote(id);
+        applyFile(file, blockId);
+        setActivePageViewId(null);
+        recordNavigation(file.id, blockId);
+        return true;
+      } catch (failure) {
+        setError(message(failure));
+        return false;
+      }
+    },
+    [applyFile, recordNavigation, saveNow],
+  );
 
-  const openPageView = useCallback(async (id: string) => {
-    if (!await saveNow()) return false;
-    if (
-      id !== OPEN_TASKS_VIEW.id &&
-      !customPageViews.some((view) => view.id === id)
-    ) return false;
-    setActivePageViewId(id);
-    return true;
-  }, [customPageViews, saveNow]);
+  const openPageView = useCallback(
+    async (id: string) => {
+      if (!(await saveNow())) return false;
+      if (
+        id !== OPEN_TASKS_VIEW.id &&
+        !customPageViews.some((view) => view.id === id)
+      )
+        return false;
+      setActivePageViewId(id);
+      return true;
+    },
+    [customPageViews, saveNow],
+  );
 
   const createPageView = useCallback(
     (name: string, filters: PageViewFilters) => {
@@ -506,109 +529,133 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const deletePageView = useCallback((id: string) => {
     setCustomPageViews((current) => current.filter((view) => view.id !== id));
     setActivePageViewId((current) =>
-      current === id ? OPEN_TASKS_VIEW.id : current
+      current === id ? OPEN_TASKS_VIEW.id : current,
     );
   }, []);
 
-  const moveHistory = useCallback(async (offset: -1 | 1) => {
-    if (activePageViewId && offset === -1) {
-      setActivePageViewId(null);
-      return true;
-    }
-    const targetIndex = navigationHistoryRef.current.index + offset;
-    const target = navigationHistoryRef.current.entries[targetIndex];
-    if (!target || !await saveNow()) return false;
-    try {
-      applyFile(await readNote(target.id), target.blockId);
-      const next = { ...navigationHistoryRef.current, index: targetIndex };
-      navigationHistoryRef.current = next;
-      setNavigationHistory(next);
-      return true;
-    } catch (failure) {
-      setError(message(failure));
-      return false;
-    }
-  }, [activePageViewId, applyFile, saveNow]);
-
-  const followWikiLink = useCallback(async (rawTarget: string) => {
-    const parsed = parseWikiTarget(rawTarget);
-    let id = activeIdRef.current;
-    if (parsed.target) {
-      const exact = notes.find((summary) =>
-        noteTarget(summary.id) === parsed.target
-      );
-      const titleMatches = notes.filter((summary) =>
-        normalizeSearchText(summary.title) ===
-          normalizeSearchText(parsed.target)
-      );
-      id = exact?.id ?? (titleMatches.length === 1 ? titleMatches[0].id : null);
-    }
-    if (!id) {
-      setError("That page link is unresolved or ambiguous.");
-      return false;
-    }
-    return await openNote(id, parsed.blockId ?? undefined);
-  }, [notes, openNote]);
-
-  const createPage = useCallback(async (title: string) => {
-    if (!await saveNow()) return false;
-    try {
-      const file = await desktop.notesCreate({ kind: "page", title });
-      setNotes(await desktop.notesList());
-      applyFile(file);
-      setActivePageViewId(null);
-      recordNavigation(file.id);
-      return true;
-    } catch (failure) {
-      setError(message(failure));
-      return false;
-    }
-  }, [applyFile, recordNavigation, saveNow]);
-
-  const openJournal = useCallback(async (date: string) => {
-    return await openNote(`journals/${date}.md`);
-  }, [openNote]);
-
-  const importFiles = useCallback(async (files: File[]) => {
-    const failures: string[] = [];
-    let firstId: NoteId | null = null;
-    for (const file of files) {
-      try {
-        const imported = await desktop.notesImport([{
-          name: file.name,
-          bytes: new Uint8Array(await file.arrayBuffer()),
-        }]);
-        firstId ??= imported[0]?.id ?? null;
-      } catch (failure) {
-        failures.push(`${file.name}: ${message(failure)}`);
+  const moveHistory = useCallback(
+    async (offset: -1 | 1) => {
+      if (activePageViewId && offset === -1) {
+        setActivePageViewId(null);
+        return true;
       }
-    }
-    setNotes(await desktop.notesList());
-    if (firstId) await openNote(firstId);
-    return failures;
-  }, [openNote]);
+      const targetIndex = navigationHistoryRef.current.index + offset;
+      const target = navigationHistoryRef.current.entries[targetIndex];
+      if (!target || !(await saveNow())) return false;
+      try {
+        applyFile(await readNote(target.id), target.blockId);
+        const next = { ...navigationHistoryRef.current, index: targetIndex };
+        navigationHistoryRef.current = next;
+        setNavigationHistory(next);
+        return true;
+      } catch (failure) {
+        setError(message(failure));
+        return false;
+      }
+    },
+    [activePageViewId, applyFile, saveNow],
+  );
 
-  const deleteNote = useCallback(async (id: NoteId) => {
-    try {
-      await desktop.notesDelete(id);
-      const remainingNotes = await desktop.notesList();
-      setNotes(remainingNotes);
-      if (id === activeIdRef.current) {
-        if (remainingNotes.length > 0) {
-          // Open another note, preferably a page
-          const fallback = remainingNotes.find(n => n.kind === "page") || remainingNotes[0];
-          await openNote(fallback.id);
-        } else {
-          // No notes left, fallback to today's journal
-          await openNote(`journals/${dateValue()}.md`);
+  const followWikiLink = useCallback(
+    async (rawTarget: string) => {
+      const parsed = parseWikiTarget(rawTarget);
+      let id = activeIdRef.current;
+      if (parsed.target) {
+        const exact = notes.find(
+          (summary) => noteTarget(summary.id) === parsed.target,
+        );
+        const titleMatches = notes.filter(
+          (summary) =>
+            normalizeSearchText(summary.title) ===
+            normalizeSearchText(parsed.target),
+        );
+        id =
+          exact?.id ?? (titleMatches.length === 1 ? titleMatches[0].id : null);
+      }
+      if (!id) {
+        setError("That page link is unresolved or ambiguous.");
+        return false;
+      }
+      return await openNote(id, parsed.blockId ?? undefined);
+    },
+    [notes, openNote],
+  );
+
+  const createPage = useCallback(
+    async (title: string) => {
+      if (!(await saveNow())) return false;
+      try {
+        const file = await desktop.notesCreate({ kind: "page", title });
+        setNotes(await desktop.notesList());
+        applyFile(file);
+        setActivePageViewId(null);
+        recordNavigation(file.id);
+        return true;
+      } catch (failure) {
+        setError(message(failure));
+        return false;
+      }
+    },
+    [applyFile, recordNavigation, saveNow],
+  );
+
+  const openJournal = useCallback(
+    async (date: string) => {
+      return await openNote(`journals/${date}.md`);
+    },
+    [openNote],
+  );
+
+  const importFiles = useCallback(
+    async (files: File[]) => {
+      const failures: string[] = [];
+      let firstId: NoteId | null = null;
+      for (const file of files) {
+        try {
+          const imported = await desktop.notesImport([
+            {
+              name: file.name,
+              bytes: new Uint8Array(await file.arrayBuffer()),
+            },
+          ]);
+          firstId ??= imported[0]?.id ?? null;
+        } catch (failure) {
+          failures.push(`${file.name}: ${message(failure)}`);
         }
       }
-      return true;
-    } catch (failure) {
-      setError(message(failure));
-      return false;
-    }
-  }, [openNote]);
+      setNotes(await desktop.notesList());
+      if (firstId) await openNote(firstId);
+      return failures;
+    },
+    [openNote],
+  );
+
+  const deleteNote = useCallback(
+    async (id: NoteId) => {
+      try {
+        await desktop.notesDelete(id);
+        const remainingNotes = await desktop.notesList();
+        setNotes(remainingNotes);
+        if (id === activeIdRef.current) {
+          if (remainingNotes.length > 0) {
+            // Open another note, preferably a page
+            const fallback =
+              remainingNotes.find((n) => n.kind === "page") ||
+              remainingNotes[0];
+            await openNote(fallback.id);
+          } else {
+            // No notes left, fallback to today's journal
+            await openNote(`journals/${dateValue()}.md`);
+          }
+        }
+        return true;
+      } catch (failure) {
+        setError(message(failure));
+        return false;
+      }
+    },
+    [openNote],
+  );
 
   const setMode = useCallback((mode: EditorMode) => {
     if (mode === draftRef.current.mode) return true;
@@ -670,107 +717,117 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     if (conflict) applyFile(conflict.disk);
   }, [applyFile, conflict]);
 
-  const value = useMemo<NotesContextValue>(() => ({
-    workspacePath,
-    notes,
-    note,
-    draft,
-    status,
-    loading,
-    error,
-    conflict,
-    backlinks,
-    resetKey,
-    focusRequest,
-    changeTitle: (title) => updateDraft({ title }),
-    changeContent: (content) => updateDraft({ content }),
-    changeSource: (source) => updateDraft({ source }),
-    setMode,
-    convertSource,
-    openNote,
-    followWikiLink,
-    createPage,
-    deleteNote,
-    importFiles,
-    saveNow,
-    keepMine,
-    useDisk,
-    retry: () => setRetryTick((value) => value + 1),
-    reportError: setError,
-  }), [
-    workspacePath,
-    notes,
-    note,
-    draft,
-    status,
-    loading,
-    error,
-    conflict,
-    backlinks,
-    resetKey,
-    focusRequest,
-    setMode,
-    convertSource,
-    openNote,
-    followWikiLink,
-    createPage,
-    deleteNote,
-    importFiles,
-    saveNow,
-    keepMine,
-    useDisk,
-    updateDraft,
-  ]);
+  const value = useMemo<NotesContextValue>(
+    () => ({
+      workspacePath,
+      notes,
+      note,
+      draft,
+      status,
+      loading,
+      error,
+      conflict,
+      backlinks,
+      resetKey,
+      focusRequest,
+      changeTitle: (title) => updateDraft({ title }),
+      changeContent: (content) => updateDraft({ content }),
+      changeSource: (source) => updateDraft({ source }),
+      setMode,
+      convertSource,
+      openNote,
+      followWikiLink,
+      createPage,
+      deleteNote,
+      importFiles,
+      saveNow,
+      keepMine,
+      useDisk,
+      retry: () => setRetryTick((value) => value + 1),
+      reportError: setError,
+    }),
+    [
+      workspacePath,
+      notes,
+      note,
+      draft,
+      status,
+      loading,
+      error,
+      conflict,
+      backlinks,
+      resetKey,
+      focusRequest,
+      setMode,
+      convertSource,
+      openNote,
+      followWikiLink,
+      createPage,
+      deleteNote,
+      importFiles,
+      saveNow,
+      keepMine,
+      useDisk,
+      updateDraft,
+    ],
+  );
 
-  const navigation = useMemo<NavigationContextValue>(() => ({
-    workspacePath,
-    notes,
-    noteId: activePageViewId ? null : note?.id ?? null,
-    pageViews: [OPEN_TASKS_VIEW, ...customPageViews],
-    activePageView: [OPEN_TASKS_VIEW, ...customPageViews].find((view) =>
-      view.id === activePageViewId
-    ) ?? null,
-    canGoBack: Boolean(activePageViewId) || navigationHistory.index > 0,
-    canGoForward: !activePageViewId &&
-      navigationHistory.index < navigationHistory.entries.length - 1,
-    goBack: () =>
-      moveHistory(-1),
-    goForward: () => moveHistory(1),
-    openNote,
-    openPageView,
-    createPageView,
-    deletePageView,
-    openJournal,
-    createPage,
-    deleteNote,
-    importFiles,
-  }), [
-    workspacePath,
-    notes,
-    note?.id,
-    activePageViewId,
-    customPageViews,
-    navigationHistory,
-    moveHistory,
-    openNote,
-    openPageView,
-    createPageView,
-    deletePageView,
-    openJournal,
-    createPage,
-    deleteNote,
-    importFiles,
-  ]);
+  const navigation = useMemo<NavigationContextValue>(
+    () => ({
+      workspacePath,
+      notes,
+      noteId: activePageViewId ? null : (note?.id ?? null),
+      pageViews: [OPEN_TASKS_VIEW, ...customPageViews],
+      activePageView:
+        [OPEN_TASKS_VIEW, ...customPageViews].find(
+          (view) => view.id === activePageViewId,
+        ) ?? null,
+      canGoBack: Boolean(activePageViewId) || navigationHistory.index > 0,
+      canGoForward:
+        !activePageViewId &&
+        navigationHistory.index < navigationHistory.entries.length - 1,
+      goBack: () => moveHistory(-1),
+      goForward: () => moveHistory(1),
+      openNote,
+      openPageView,
+      createPageView,
+      deletePageView,
+      openJournal,
+      createPage,
+      deleteNote,
+      importFiles,
+    }),
+    [
+      workspacePath,
+      notes,
+      note?.id,
+      activePageViewId,
+      customPageViews,
+      navigationHistory,
+      moveHistory,
+      openNote,
+      openPageView,
+      createPageView,
+      deletePageView,
+      openJournal,
+      createPage,
+      deleteNote,
+      importFiles,
+    ],
+  );
 
-  const editorRuntime = useMemo<EditorRuntimeContextValue>(() => ({
-    notes,
-    noteId: note?.id ?? null,
-    focusRequest,
-    draft: () => draftRef.current,
-    changeContent: (content) => updateDraft({ content }),
-    followWikiLink,
-    reportError: setError,
-  }), [notes, note?.id, focusRequest, updateDraft, followWikiLink]);
+  const editorRuntime = useMemo<EditorRuntimeContextValue>(
+    () => ({
+      notes,
+      noteId: note?.id ?? null,
+      focusRequest,
+      draft: () => draftRef.current,
+      changeContent: (content) => updateDraft({ content }),
+      followWikiLink,
+      reportError: setError,
+    }),
+    [notes, note?.id, focusRequest, updateDraft, followWikiLink],
+  );
 
   return (
     <NavigationContext.Provider value={navigation}>

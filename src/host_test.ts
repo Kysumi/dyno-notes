@@ -36,11 +36,13 @@ Deno.test("workspace creates notes with safe names and collisions", () =>
       date: "2026-07-22",
     });
     equal(
-      (await workspace.create({
-        kind: "journal",
-        title: "Ignored",
-        date: "2026-07-22",
-      })).id,
+      (
+        await workspace.create({
+          kind: "journal",
+          title: "Ignored",
+          date: "2026-07-22",
+        })
+      ).id,
       journal.id,
     );
   }));
@@ -104,14 +106,12 @@ Deno.test("a journal is created only on its first content save", () =>
 
 Deno.test("workspace rejects traversal, absolute paths, and symlinks", () =>
   fixture(async (workspace, root) => {
-    for (
-      const id of [
-        "../secret.md",
-        "/tmp/secret.md",
-        "pages/../secret.md",
-        "pages\\secret.md",
-      ]
-    ) {
+    for (const id of [
+      "../secret.md",
+      "/tmp/secret.md",
+      "pages/../secret.md",
+      "pages\\secret.md",
+    ]) {
       await rejects(
         () => workspace.read(id),
         (error: unknown) =>
@@ -165,7 +165,7 @@ Deno.test("save preserves EOL, normalizes the final newline, and detects conflic
     );
     deepStrictEqual(
       (await Array.fromAsync(Deno.readDir(`${root}/pages`))).filter((entry) =>
-        entry.name.startsWith(".dyno-")
+        entry.name.startsWith(".dyno-"),
       ),
       [],
     );
@@ -180,10 +180,12 @@ Deno.test("imports preserve UTF-8 bytes, suffix collisions, and reject invalid e
     equal(again[0].id, "pages/my-note-2.md");
     deepStrictEqual(await Deno.readFile(`${root}/pages/my-note.md`), bytes);
 
-    const noTitle = await workspace.import([{
-      name: "Plain File.md",
-      bytes: new TextEncoder().encode("No heading here.\n"),
-    }]);
+    const noTitle = await workspace.import([
+      {
+        name: "Plain File.md",
+        bytes: new TextEncoder().encode("No heading here.\n"),
+      },
+    ]);
     equal(noTitle[0].title, "plain-file");
 
     await rejects(
@@ -222,10 +224,10 @@ See [[pages/orbit#^abcdef123456|target]]. ^111111111111
     equal(backlinks.length, 1);
     equal(backlinks[0].sourceId, "pages/source.md");
     equal(backlinks[0].sourceBlockId, "111111111111");
-    deepStrictEqual(workspace.search("Project").map((result) => result.title), [
-      "Project",
-      "Project Orbit",
-    ]);
+    deepStrictEqual(
+      workspace.search("Project").map((result) => result.title),
+      ["Project", "Project Orbit"],
+    );
     equal(workspace.search("Other body")[0].id, "pages/project.md");
     deepStrictEqual(
       workspace.tasks().map(({ id, noteId, text, checked, blockId }) => ({
@@ -235,13 +237,15 @@ See [[pages/orbit#^abcdef123456|target]]. ^111111111111
         checked,
         blockId,
       })),
-      [{
-        id: "pages/orbit.md#^abcdef123456",
-        noteId: "pages/orbit.md",
-        text: "Target.",
-        checked: false,
-        blockId: "abcdef123456",
-      }],
+      [
+        {
+          id: "pages/orbit.md#^abcdef123456",
+          noteId: "pages/orbit.md",
+          text: "Target.",
+          checked: false,
+          blockId: "abcdef123456",
+        },
+      ],
     );
   }));
 
@@ -287,13 +291,16 @@ Deno.test("cleanup only removes stale Dyno temporary files", () =>
 
 Deno.test("writeAll handles partial writes", async () => {
   const chunks: Uint8Array[] = [];
-  await writeAll({
-    write(bytes) {
-      const chunk = bytes.slice(0, 2);
-      chunks.push(chunk);
-      return Promise.resolve(chunk.length);
+  await writeAll(
+    {
+      write(bytes) {
+        const chunk = bytes.slice(0, 2);
+        chunks.push(chunk);
+        return Promise.resolve(chunk.length);
+      },
     },
-  }, new TextEncoder().encode("abcdef"));
+    new TextEncoder().encode("abcdef"),
+  );
   equal(
     new TextDecoder().decode(
       Uint8Array.from(chunks.flatMap((chunk) => [...chunk])),

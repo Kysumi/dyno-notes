@@ -199,12 +199,15 @@ export function scanMarkdown(source: string): IndexedMarkdown {
     const kind = /^\s{0,3}#{1,6}\s+/u.test(visible)
       ? "heading"
       : /^\s*(?:[-+*]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)/u.test(visible)
-      ? "list"
-      : /^\s*>/u.test(visible)
-      ? "quote"
-      : "paragraph";
+        ? "list"
+        : /^\s*>/u.test(visible)
+          ? "quote"
+          : "paragraph";
     if (
-      !active || kind === "heading" || kind === "list" || active.kind !== kind
+      !active ||
+      kind === "heading" ||
+      kind === "list" ||
+      active.kind !== kind
     ) {
       active = { kind, lines: [], linkIndexes: [] };
     }

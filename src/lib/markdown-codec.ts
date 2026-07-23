@@ -47,9 +47,13 @@ function markerNode(node: JSONContent): JSONContent | null {
     return node.content?.find((child) => child.type === "paragraph") ?? null;
   }
   if (node.type === "blockquote") {
-    return [...(node.content ?? [])].reverse().find((child) =>
-      child.type === "paragraph" || child.type === "heading"
-    ) ?? null;
+    return (
+      [...(node.content ?? [])]
+        .reverse()
+        .find(
+          (child) => child.type === "paragraph" || child.type === "heading",
+        ) ?? null
+    );
   }
   return null;
 }
@@ -145,7 +149,8 @@ function unsupportedReasons(source: string): string[] {
     if (
       visible.includes("|") &&
       /^\s*\|?\s*:?-{3,}/u.test(lines[index + 1] ?? "")
-    ) reasons.add("tables");
+    )
+      reasons.add("tables");
   }
   if (fence) reasons.add("an unclosed code fence");
   return [...reasons];
@@ -175,7 +180,8 @@ export function parseMarkdown(source: string): ParsedNote {
 }
 
 export function serializeMarkdown(title: string, content: JSONContent): string {
-  const body = manager.serialize(encodeBlocks(structuredClone(content)))
+  const body = manager
+    .serialize(encodeBlocks(structuredClone(content)))
     .trimEnd();
   return body ? `# ${title.trim()}\n\n${body}\n` : `# ${title.trim()}\n`;
 }

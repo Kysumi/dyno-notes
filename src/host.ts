@@ -85,10 +85,10 @@ function detectEol(source: string): "\n" | "\r\n" {
 }
 
 function normalizedSource(source: string, eol: "\n" | "\r\n"): string {
-  const lf = source.replaceAll("\r\n", "\n").replaceAll("\r", "\n").replace(
-    /\n+$/u,
-    "",
-  );
+  const lf = source
+    .replaceAll("\r\n", "\n")
+    .replaceAll("\r", "\n")
+    .replace(/\n+$/u, "");
   return `${lf}\n`.replaceAll("\n", eol);
 }
 
@@ -110,11 +110,13 @@ function validateTitle(value: unknown): string {
 }
 
 export function slugify(value: string): string {
-  return value
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "") || "untitled";
+  return (
+    value
+      .normalize("NFKC")
+      .toLocaleLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-+|-+$/g, "") || "untitled"
+  );
 }
 
 export async function hashBytes(bytes: Uint8Array): Promise<string> {
@@ -177,9 +179,12 @@ function validDate(value: unknown): value is string {
 }
 
 function isManagedId(id: string): boolean {
-  return /^(?:pages|journals)\/(?!.*(?:^|\/)\.{1,2}(?:\/|$))[^\0\\]+\.md$/iu
-    .test(id) &&
-    !id.split("/").some((part) => part.startsWith("."));
+  return (
+    // oxlint-disable-next-line no-control-regex -- \0 excludes NUL bytes from path segments
+    /^(?:pages|journals)\/(?!.*(?:^|\/)\.{1,2}(?:\/|$))[^\0\\]+\.md$/iu.test(
+      id,
+    ) && !id.split("/").some((part) => part.startsWith("."))
+  );
 }
 
 function bodyExcerpt(text: string, query: string): string {
@@ -247,8 +252,13 @@ export class Workspace {
 
   #validateId(id: unknown): asserts id is NoteId {
     if (
-      typeof id !== "string" || !id || id.includes("\0") || id.includes("\\") ||
-      isAbsolute(id) || win32.isAbsolute(id) || !isManagedId(id) ||
+      typeof id !== "string" ||
+      !id ||
+      id.includes("\0") ||
+      id.includes("\\") ||
+      isAbsolute(id) ||
+      win32.isAbsolute(id) ||
+      !isManagedId(id) ||
       id.split("/").some((part) => part === "." || part === "..")
     ) {
       throw new AppError("InvalidNoteId", "The note ID is invalid.");
@@ -377,9 +387,11 @@ export class Workspace {
     );
   }
 
-  async create(
-    input: { kind: NoteKind; title: string; date?: string },
-  ): Promise<NoteFile> {
+  async create(input: {
+    kind: NoteKind;
+    title: string;
+    date?: string;
+  }): Promise<NoteFile> {
     if (!input || (input.kind !== "page" && input.kind !== "journal")) {
       throw new AppError("InvalidInput", "Choose a valid note type.");
     }
@@ -422,17 +434,24 @@ export class Workspace {
     return await this.read(id);
   }
 
-  save(
-    input: { id: NoteId; source: string; expectedRevision: string },
-  ): Promise<{ revision: string; updatedAt: string }> {
+  save(input: {
+    id: NoteId;
+    source: string;
+    expectedRevision: string;
+  }): Promise<{ revision: string; updatedAt: string }> {
     const operation = this.#writeQueue.then(() => this.#save(input));
-    this.#writeQueue = operation.then(() => undefined, () => undefined);
+    this.#writeQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
     return operation;
   }
 
-  async #save(
-    input: { id: NoteId; source: string; expectedRevision: string },
-  ): Promise<{ revision: string; updatedAt: string }> {
+  async #save(input: {
+    id: NoteId;
+    source: string;
+    expectedRevision: string;
+  }): Promise<{ revision: string; updatedAt: string }> {
     if (!input || typeof input.expectedRevision !== "string") {
       throw new AppError("InvalidInput", "A note revision is required.");
     }
@@ -467,7 +486,7 @@ export class Workspace {
     }
     const target = await this.#resolveId(input.id);
     const currentBytes = await Deno.readFile(target);
-    if (await hashBytes(currentBytes) !== input.expectedRevision) {
+    if ((await hashBytes(currentBytes)) !== input.expectedRevision) {
       throw new AppError(
         "Conflict",
         "The note changed on disk. Choose which version to keep.",
@@ -490,7 +509,8 @@ export class Workspace {
       }
 
       if (
-        await hashBytes(await Deno.readFile(target)) !== input.expectedRevision
+        (await hashBytes(await Deno.readFile(target))) !==
+        input.expectedRevision
       ) {
         throw new AppError(
           "Conflict",
@@ -522,7 +542,8 @@ export class Workspace {
 
     for (const input of files) {
       if (
-        !input || typeof input.name !== "string" ||
+        !input ||
+        typeof input.name !== "string" ||
         !(input.bytes instanceof Uint8Array)
       ) {
         throw new AppError("InvalidInput", "The imported file is invalid.");
@@ -605,15 +626,16 @@ export class Workspace {
   #resolveTarget(sourceId: NoteId, rawTarget: string): NoteId | null {
     if (!rawTarget) return sourceId;
     const target = rawTarget.normalize("NFC").replace(/\.md$/iu, "");
-    const exact = Array.from(this.#notes.keys()).find((id) =>
-      noteTarget(id).normalize("NFC") === target
+    const exact = Array.from(this.#notes.keys()).find(
+      (id) => noteTarget(id).normalize("NFC") === target,
     );
     if (exact) return exact;
 
     const normalizedTitle = normalizeSearchText(target);
     const matches = Array.from(this.#notes.entries())
-      .filter(([, note]) =>
-        normalizeSearchText(note.summary.title) === normalizedTitle
+      .filter(
+        ([, note]) =>
+          normalizeSearchText(note.summary.title) === normalizedTitle,
       )
       .map(([id]) => id);
     return matches.length === 1 ? matches[0] : null;
@@ -663,9 +685,11 @@ export class Workspace {
     if (input.blockId !== undefined && !/^[0-9a-f]{12}$/u.test(input.blockId)) {
       throw new AppError("InvalidInput", "The block ID is invalid.");
     }
-    return this.#backlinks.get(
-      input.blockId ? `${input.noteId}#^${input.blockId}` : input.noteId,
-    ) ?? [];
+    return (
+      this.#backlinks.get(
+        input.blockId ? `${input.noteId}#^${input.blockId}` : input.noteId,
+      ) ?? []
+    );
   }
 
   search(query: string): SearchResult[] {
@@ -675,20 +699,22 @@ export class Workspace {
       .map(({ summary, markdown }) => {
         const title = normalizeSearchText(summary.title);
         const body = normalizeSearchText(markdown.searchText);
-        const rank = title === normalizedQuery
-          ? 0
-          : title.startsWith(normalizedQuery)
-          ? 1
-          : title.includes(normalizedQuery)
-          ? 2
-          : body.includes(normalizedQuery)
-          ? 3
-          : -1;
+        const rank =
+          title === normalizedQuery
+            ? 0
+            : title.startsWith(normalizedQuery)
+              ? 1
+              : title.includes(normalizedQuery)
+                ? 2
+                : body.includes(normalizedQuery)
+                  ? 3
+                  : -1;
         return { summary, markdown, rank };
       })
       .filter((result) => result.rank >= 0)
-      .sort((a, b) =>
-        a.rank - b.rank || a.summary.title.localeCompare(b.summary.title)
+      .sort(
+        (a, b) =>
+          a.rank - b.rank || a.summary.title.localeCompare(b.summary.title),
       )
       .slice(0, 20)
       .map(({ summary, markdown }) => ({
@@ -705,7 +731,8 @@ export class Workspace {
         const path = join(directory, entry.name);
         if (entry.isDirectory) await removeStale(path);
         else if (
-          entry.isFile && entry.name.startsWith(TEMP_PREFIX) &&
+          entry.isFile &&
+          entry.name.startsWith(TEMP_PREFIX) &&
           entry.name.endsWith(TEMP_SUFFIX)
         ) {
           const stat = await Deno.stat(path);

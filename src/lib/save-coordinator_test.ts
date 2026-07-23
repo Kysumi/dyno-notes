@@ -5,7 +5,7 @@ import { SaveCoordinator, type SaveStatus } from "./save-coordinator.ts";
 Deno.test("changes during a save trigger exactly one follow-up save", async () => {
   let source = "one";
   let release!: () => void;
-  const firstSave = new Promise<void>((resolve) => release = resolve);
+  const firstSave = new Promise<void>((resolve) => (release = resolve));
   const inputs: string[] = [];
   const statuses: SaveStatus[] = [];
   const coordinator = new SaveCoordinator({

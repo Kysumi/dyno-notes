@@ -30,9 +30,10 @@ const targetableBlocks = [
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     wikiLink: {
-      insertWikiLink: (
-        attributes: { target: string; label?: string },
-      ) => ReturnType;
+      insertWikiLink: (attributes: {
+        target: string;
+        label?: string;
+      }) => ReturnType;
     };
     blockIdentity: {
       ensureBlockId: () => ReturnType;
@@ -59,13 +60,15 @@ export const WikiLink = Node.create({
   },
 
   parseHTML() {
-    return [{
-      tag: "a[data-wiki-target]",
-      getAttrs: (element) => ({
-        target: (element as HTMLElement).dataset.wikiTarget ?? "",
-        label: element.textContent,
-      }),
-    }];
+    return [
+      {
+        tag: "a[data-wiki-target]",
+        getAttrs: (element) => ({
+          target: (element as HTMLElement).dataset.wikiTarget ?? "",
+          label: element.textContent,
+        }),
+      },
+    ];
   },
 
   renderHTML({ node, HTMLAttributes }) {
@@ -115,14 +118,16 @@ export const WikiLink = Node.create({
   },
 
   addInputRules() {
-    return [nodeInputRule({
-      find: new RegExp(`${WIKI_LINK_SOURCE}$`),
-      type: this.type,
-      getAttributes: (match) => ({
-        target: match[1].trim(),
-        label: match[2]?.trim() || null,
+    return [
+      nodeInputRule({
+        find: new RegExp(`${WIKI_LINK_SOURCE}$`),
+        type: this.type,
+        getAttributes: (match) => ({
+          target: match[1].trim(),
+          label: match[2]?.trim() || null,
+        }),
       }),
-    })];
+    ];
   },
 });
 
@@ -152,11 +157,13 @@ export const TldrawExtension = Node.create({
 
   addCommands() {
     return {
-      insertTldraw: () => ({ commands }) =>
-        commands.insertContent({
-          type: this.name,
-          attrs: { source: "{}" },
-        }),
+      insertTldraw:
+        () =>
+        ({ commands }) =>
+          commands.insertContent({
+            type: this.name,
+            attrs: { source: "{}" },
+          }),
     };
   },
 
@@ -189,17 +196,19 @@ export const BlockIdentity = Extension.create({
   name: "blockIdentity",
 
   addGlobalAttributes() {
-    return [{
-      types: targetableBlocks,
-      attributes: {
-        blockId: {
-          default: null,
-          parseHTML: (element) => element.getAttribute("data-block-id"),
-          renderHTML: (attributes) =>
-            attributes.blockId ? { "data-block-id": attributes.blockId } : {},
+    return [
+      {
+        types: targetableBlocks,
+        attributes: {
+          blockId: {
+            default: null,
+            parseHTML: (element) => element.getAttribute("data-block-id"),
+            renderHTML: (attributes) =>
+              attributes.blockId ? { "data-block-id": attributes.blockId } : {},
+          },
         },
       },
-    }];
+    ];
   },
 
   addCommands() {
@@ -210,12 +219,12 @@ export const BlockIdentity = Extension.create({
 });
 
 export const TagHighlight = Extension.create({
-  name: 'tagHighlight',
+  name: "tagHighlight",
 
   addProseMirrorPlugins() {
     return [
       new Plugin({
-        key: new PluginKey('tagHighlight'),
+        key: new PluginKey("tagHighlight"),
         state: {
           init(_, { doc }) {
             return getTagDecorations(doc);
@@ -238,18 +247,18 @@ function getTagDecorations(doc: ProseMirrorNode) {
   const decorations: Decoration[] = [];
   doc.descendants((node: ProseMirrorNode, pos: number) => {
     if (node.isText) {
-      const text = node.text || '';
+      const text = node.text || "";
       const regex = /(?:^|\s)(#[a-zA-Z0-9_-]+)/g;
       let match;
       while ((match = regex.exec(text)) !== null) {
         const matchText = match[1];
         const start = pos + match.index + (match[0].length - matchText.length);
         const end = start + matchText.length;
-        
+
         decorations.push(
           Decoration.inline(start, end, {
-            class: 'tag-highlight',
-          })
+            class: "tag-highlight",
+          }),
         );
       }
     }
@@ -279,8 +288,8 @@ export function editorExtensions() {
 }
 
 export function codecExtensions() {
-  return editorExtensions().filter((extension) =>
-    extension.name !== "markdown"
+  return editorExtensions().filter(
+    (extension) => extension.name !== "markdown",
   );
 }
 
@@ -288,7 +297,8 @@ export function ensureCurrentBlockId(editor: Editor): string | null {
   const { $from } = editor.state.selection;
   let depth = $from.depth;
   if (
-    $from.node(depth).type.name === "paragraph" && depth > 0 &&
+    $from.node(depth).type.name === "paragraph" &&
+    depth > 0 &&
     ["listItem", "taskItem"].includes($from.node(depth - 1).type.name)
   ) {
     depth--;
@@ -307,9 +317,8 @@ export function ensureCurrentBlockId(editor: Editor): string | null {
     if (child.attrs.blockId) ids.add(String(child.attrs.blockId));
   });
   let blockId: string;
-  do blockId = crypto.randomUUID().replaceAll("-", "").slice(0, 12); while (
-    ids.has(blockId)
-  );
+  do blockId = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
+  while (ids.has(blockId));
 
   const position = $from.before(depth);
   editor.view.dispatch(
