@@ -43,7 +43,7 @@
   border-left-color: color-mix(in oklab, var(--primary) 50%, transparent);
 }
 
-.tiptap-editor .tiptap a[data-wiki-target] {
+.tiptap-editor .tiptap a {
   cursor: pointer;
   border-radius: var(--radius-sm);
   color: var(--primary);

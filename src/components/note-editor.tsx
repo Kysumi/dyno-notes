@@ -587,32 +587,44 @@ const WysiwygEditor = memo(function WysiwygEditor() {
 
   if (!editor) return null;
 
-  const openWikiLink = (event: {
+  const handleLinkClick = (event: {
     target: EventTarget | null;
     preventDefault(): void;
     stopPropagation(): void;
   }) => {
-    const link = (event.target as HTMLElement).closest<HTMLElement>(
+    const wikiLink = (event.target as HTMLElement).closest<HTMLElement>(
       "a[data-wiki-target]",
     );
-    if (!link) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (link.dataset.wikiState !== "resolved") {
-      reportError(
-        `This page link is ${link.dataset.wikiState ?? "unresolved"}.`,
-      );
+    if (wikiLink) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (wikiLink.dataset.wikiState !== "resolved") {
+        reportError(
+          `This page link is ${wikiLink.dataset.wikiState ?? "unresolved"}.`,
+        );
+        return;
+      }
+      void followWikiLink(wikiLink.dataset.wikiTarget ?? "");
       return;
     }
-    void followWikiLink(link.dataset.wikiTarget ?? "");
+
+    const normalLink = (event.target as HTMLElement).closest<HTMLAnchorElement>(
+      "a[href]",
+    );
+    if (normalLink && !normalLink.hasAttribute("data-wiki-target")) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.open(normalLink.href, "_blank");
+      return;
+    }
   };
 
   return (
     <div
       ref={wrapper}
-      onClickCapture={openWikiLink}
+      onClickCapture={handleLinkClick}
       onKeyDownCapture={(event) => {
-        if (event.key === "Enter") openWikiLink(event);
+        if (event.key === "Enter") handleLinkClick(event);
       }}
       className="tiptap-editor group/editor relative"
     >
