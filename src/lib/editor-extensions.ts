@@ -7,6 +7,7 @@ import {
 } from "@tiptap/core";
 import { Markdown } from "@tiptap/markdown";
 import { ReactNodeViewRenderer } from "@tiptap/react";
+import Image from "@tiptap/extension-image";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
@@ -279,6 +280,7 @@ export function editorExtensions() {
     }),
     TaskList,
     TaskItem.configure({ nested: true }),
+    Image.configure({ allowBase64: true }),
     WikiLink,
     TldrawExtension,
     BlockIdentity,

@@ -209,6 +209,14 @@
   font: inherit;
 }
 
+.tiptap-editor .tiptap img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.75rem auto;
+  border-radius: var(--radius-md);
+}
+
 @media (min-width: 40rem) {
   .tiptap-editor .tiptap {
     padding: 2rem;

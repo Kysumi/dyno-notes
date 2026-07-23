@@ -18,6 +18,7 @@ import {
   GripVertical,
   Heading2,
   Heading3,
+  ImageIcon,
   Italic,
   Link,
   List,
@@ -269,6 +270,7 @@ function wikiLinkSuggestion(getNotes: () => NoteSummary[]) {
 
 function EditorToolbar({ editor }: { editor: Editor }) {
   const { draft, noteId, reportError } = useEditorRuntime();
+  const imageInput = useRef<HTMLInputElement>(null);
   const state = useEditorState({
     editor,
     selector: ({ editor }) => ({
@@ -288,6 +290,30 @@ function EditorToolbar({ editor }: { editor: Editor }) {
 
   const heading = (level: 2 | 3) =>
     editor.chain().focus().toggleHeading({ level }).run();
+
+  const insertImage = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      reportError("Choose an image file.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result !== "string") {
+        reportError("The image could not be read.");
+        return;
+      }
+      editor
+        .chain()
+        .focus()
+        .setImage({ src: reader.result, alt: file.name })
+        .run();
+      reportError(null);
+    });
+    reader.addEventListener("error", () =>
+      reportError("The image could not be read."),
+    );
+    reader.readAsDataURL(file);
+  };
 
   const copyBlockLink = async () => {
     if (!noteId) return;
@@ -411,6 +437,25 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       >
         <Presentation />
       </ToolbarButton>
+      <ToolbarButton
+        label="Insert image"
+        onClick={() => imageInput.current?.click()}
+      >
+        <ImageIcon />
+      </ToolbarButton>
+      <Input
+        ref={imageInput}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = "";
+          if (file) insertImage(file);
+        }}
+      />
       <div className="ml-auto">
         <ToolbarButton
           label="Copy block link"

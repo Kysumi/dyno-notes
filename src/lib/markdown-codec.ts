@@ -136,7 +136,6 @@ function unsupportedReasons(source: string): string[] {
     if (/<\/?[a-z][a-z0-9-]*(?:\s[^>]*|\/?)>/iu.test(visible)) {
       reasons.add("raw HTML");
     }
-    if (/!\[[^\]]*\]\([^)]+\)/u.test(visible)) reasons.add("images");
     if (/\[\^[^\]]+\]|^\s*\[\^[^\]]+\]:/u.test(visible)) {
       reasons.add("footnotes");
     }

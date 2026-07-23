@@ -8,6 +8,7 @@
     "npm:@tiptap/core@^3.28.0": "3.28.0_@tiptap+pm@3.28.0",
     "npm:@tiptap/extension-drag-handle-react@^3.28.0": "3.28.0_@tiptap+extension-drag-handle@3.28.0__@tiptap+core@3.28.0___@tiptap+pm@3.28.0__@tiptap+extension-collaboration@3.28.0___@tiptap+core@3.28.0____@tiptap+pm@3.28.0___@tiptap+pm@3.28.0___@tiptap+y-tiptap@3.0.7____prosemirror-model@1.25.11____prosemirror-state@1.4.4____prosemirror-view@1.42.1____y-protocols@1.0.7_____yjs@13.6.31____yjs@13.6.31___yjs@13.6.31___prosemirror-model@1.25.11___prosemirror-state@1.4.4___prosemirror-view@1.42.1___y-protocols@1.0.7____yjs@13.6.31__@tiptap+extension-node-range@3.28.0___@tiptap+core@3.28.0____@tiptap+pm@3.28.0___@tiptap+pm@3.28.0__@tiptap+pm@3.28.0__@tiptap+y-tiptap@3.0.7___prosemirror-model@1.25.11___prosemirror-state@1.4.4___prosemirror-view@1.42.1___y-protocols@1.0.7____yjs@13.6.31___yjs@13.6.31__prosemirror-model@1.25.11__prosemirror-state@1.4.4__prosemirror-view@1.42.1__y-protocols@1.0.7___yjs@13.6.31__yjs@13.6.31_@tiptap+pm@3.28.0_@tiptap+react@3.28.0__@tiptap+core@3.28.0___@tiptap+pm@3.28.0__@tiptap+pm@3.28.0__@types+react@19.2.17__@types+react-dom@19.2.3___@types+react@19.2.17__react@19.2.7__react-dom@19.2.7___react@19.2.7__@floating-ui+dom@1.8.0_react@19.2.7_react-dom@19.2.7__react@19.2.7_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+extension-collaboration@3.28.0__@tiptap+core@3.28.0___@tiptap+pm@3.28.0__@tiptap+pm@3.28.0__@tiptap+y-tiptap@3.0.7___prosemirror-model@1.25.11___prosemirror-state@1.4.4___prosemirror-view@1.42.1___y-protocols@1.0.7____yjs@13.6.31___yjs@13.6.31__yjs@13.6.31__prosemirror-model@1.25.11__prosemirror-state@1.4.4__prosemirror-view@1.42.1__y-protocols@1.0.7___yjs@13.6.31_@tiptap+extension-node-range@3.28.0__@tiptap+core@3.28.0___@tiptap+pm@3.28.0__@tiptap+pm@3.28.0_@tiptap+y-tiptap@3.0.7__prosemirror-model@1.25.11__prosemirror-state@1.4.4__prosemirror-view@1.42.1__y-protocols@1.0.7___yjs@13.6.31__yjs@13.6.31_prosemirror-model@1.25.11_prosemirror-state@1.4.4_prosemirror-view@1.42.1_y-protocols@1.0.7__yjs@13.6.31_yjs@13.6.31",
     "npm:@tiptap/extension-drag-handle@^3.28.0": "3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+extension-collaboration@3.28.0__@tiptap+core@3.28.0___@tiptap+pm@3.28.0__@tiptap+pm@3.28.0__@tiptap+y-tiptap@3.0.7___prosemirror-model@1.25.11___prosemirror-state@1.4.4___prosemirror-view@1.42.1___y-protocols@1.0.7____yjs@13.6.31___yjs@13.6.31__yjs@13.6.31__prosemirror-model@1.25.11__prosemirror-state@1.4.4__prosemirror-view@1.42.1__y-protocols@1.0.7___yjs@13.6.31_@tiptap+extension-node-range@3.28.0__@tiptap+core@3.28.0___@tiptap+pm@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0_@tiptap+y-tiptap@3.0.7__prosemirror-model@1.25.11__prosemirror-state@1.4.4__prosemirror-view@1.42.1__y-protocols@1.0.7___yjs@13.6.31__yjs@13.6.31_prosemirror-model@1.25.11_prosemirror-state@1.4.4_prosemirror-view@1.42.1_y-protocols@1.0.7__yjs@13.6.31_yjs@13.6.31",
+    "npm:@tiptap/extension-image@^3.28.0": "3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0",
     "npm:@tiptap/extension-task-item@^3.28.0": "3.28.0_@tiptap+extension-list@3.28.0__@tiptap+core@3.28.0___@tiptap+pm@3.28.0__@tiptap+pm@3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0",
     "npm:@tiptap/extension-task-list@^3.28.0": "3.28.0_@tiptap+extension-list@3.28.0__@tiptap+core@3.28.0___@tiptap+pm@3.28.0__@tiptap+pm@3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0",
     "npm:@tiptap/markdown@^3.28.0": "3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0",
@@ -1979,6 +1980,12 @@
       "dependencies": [
         "@tiptap/core",
         "@tiptap/pm"
+      ]
+    },
+    "@tiptap/extension-image@3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0": {
+      "integrity": "sha512-aKGCdEjyujUcQ6tEtq4EPbKxEC16QsKapv3DeZs1c/UHFiEUalbbPHBnxjGnupiLz75IR+07GYqBoZ81kSCxiA==",
+      "dependencies": [
+        "@tiptap/core"
       ]
     },
     "@tiptap/extension-italic@3.28.0_@tiptap+core@3.28.0__@tiptap+pm@3.28.0_@tiptap+pm@3.28.0": {
@@ -4279,6 +4286,7 @@
         "npm:@tiptap/core@^3.28.0",
         "npm:@tiptap/extension-drag-handle-react@^3.28.0",
         "npm:@tiptap/extension-drag-handle@^3.28.0",
+        "npm:@tiptap/extension-image@^3.28.0",
         "npm:@tiptap/extension-task-item@^3.28.0",
         "npm:@tiptap/extension-task-list@^3.28.0",
         "npm:@tiptap/markdown@^3.28.0",

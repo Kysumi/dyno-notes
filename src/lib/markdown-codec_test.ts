@@ -24,6 +24,8 @@ const answer = 42
 \`\`\`
 ^123456abcdef
 
+![Orbit](data:image/png;base64,aGVsbG8=)
+
 Continue in [[pages/weekly-review|Weekly Review]].
 `;
 
@@ -38,6 +40,7 @@ Deno.test("supported Markdown is structurally stable across two cycles", () => {
   ok(serialized.includes("^abcdef123456"));
   ok(serialized.includes("^123456abcdef"));
   ok(serialized.includes("```ts"));
+  ok(serialized.includes("![Orbit](data:image/png;base64,aGVsbG8=)"));
   equal(first.content.content?.[2].content?.[1].attrs?.blockId, "abcdef123456");
 });
 
@@ -64,7 +67,6 @@ Deno.test("unsupported constructs are reported before WYSIWYG editing", () => {
   equal(parsed.supported, false);
   deepStrictEqual(parsed.unsupportedReasons.sort(), [
     "footnotes",
-    "images",
     "raw HTML",
     "tables",
   ]);
