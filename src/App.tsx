@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 
 import { AppHeader } from "@/components/app-header.tsx";
 import { AppSidebar } from "@/components/app-sidebar.tsx";
+import { HelpPage } from "@/components/help-page.tsx";
 import { NoteEditor } from "@/components/note-editor.tsx";
 import { NotesProvider, useNavigation } from "@/components/notes-provider.tsx";
 import { PageContext } from "@/components/page-context.tsx";
-import { SettingsPage } from "@/components/settings-page.tsx";
 import { PageView } from "@/components/page-view.tsx";
+import { SettingsPage } from "@/components/settings-page.tsx";
 import { TooltipProvider } from "@/components/ui/tooltip.tsx";
 import {
   type AppearanceSettings,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/appearance.ts";
 
 const SETTINGS_PATH = "/settings";
+const HELP_PATH = "/help";
 
 function AppContent() {
   const { activePageView } = useNavigation();
@@ -47,13 +49,13 @@ function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
     return () => preferredScheme.removeEventListener("change", apply);
   }, [appearance]);
 
-  const openSettings = () => {
-    history.pushState({ dynoSettings: true }, "", SETTINGS_PATH);
-    setPath(SETTINGS_PATH);
+  const openAppPage = (nextPath: string) => {
+    history.pushState({ dynoPage: true }, "", nextPath);
+    setPath(nextPath);
   };
 
-  const closeSettings = () => {
-    if (history.state?.dynoSettings) {
+  const closeAppPage = () => {
+    if (history.state?.dynoPage) {
       history.back();
     } else {
       history.replaceState(null, "", "/");
@@ -74,16 +76,21 @@ function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
   return (
     <TooltipProvider>
       <NotesProvider>
-        {path === SETTINGS_PATH ? (
+        {path === HELP_PATH ? (
+          <HelpPage onClose={closeAppPage} />
+        ) : path === SETTINGS_PATH ? (
           <SettingsPage
             appearance={appearance}
-            onClose={closeSettings}
+            onClose={closeAppPage}
             onSave={saveAppearance}
           />
         ) : (
           <div className="grid h-screen grid-cols-1 grid-rows-[3.25rem_minmax(0,1fr)] overflow-hidden bg-background text-foreground md:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
             <AppHeader />
-            <AppSidebar onOpenSettings={openSettings} />
+            <AppSidebar
+              onOpenHelp={() => openAppPage(HELP_PATH)}
+              onOpenSettings={() => openAppPage(SETTINGS_PATH)}
+            />
             <AppContent />
           </div>
         )}

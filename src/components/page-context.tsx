@@ -8,7 +8,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
-import { dateValue, journalDateFromId } from "@/lib/dates.ts";
+import { dateValue, journalDateFromId, weekDates } from "@/lib/dates.ts";
 import { scanMarkdown } from "@/lib/markdown-scanner.ts";
 
 function text(node: JSONContent): string {
@@ -61,6 +61,12 @@ export function PageContext() {
   const summary = notes.find((candidate) => candidate.id === note.id);
 
   const journalDate = journalDateFromId(note.id);
+  const selectedDate = journalDate
+    ? new Date(`${journalDate}T12:00:00`)
+    : undefined;
+  const selectedWeek = journalDate
+    ? weekDates(journalDate).map((date) => new Date(`${date}T12:00:00`))
+    : [];
 
   return (
     <aside className="hidden min-h-0 border-l bg-muted/30 xl:block">
@@ -69,8 +75,17 @@ export function PageContext() {
           {journalDate && (
             <section className="flex justify-center">
               <CalendarComponent
+                key={journalDate}
                 mode="single"
-                selected={new Date(`${journalDate}T12:00:00`)}
+                weekStartsOn={1}
+                defaultMonth={selectedDate}
+                selected={selectedDate}
+                modifiers={{
+                  week: { from: selectedWeek[0], to: selectedWeek[6] },
+                }}
+                modifiersClassNames={{
+                  week: "[&>button]:bg-accent [&>button]:text-accent-foreground",
+                }}
                 onSelect={(selectedDate) => {
                   if (selectedDate) {
                     void openJournal(dateValue(selectedDate)).then((opened) => {

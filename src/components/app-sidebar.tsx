@@ -1,5 +1,6 @@
 import {
   Calendar,
+  CircleHelp,
   FileText,
   ListTodo,
   Plus,
@@ -83,7 +84,13 @@ function NewPageDialog() {
   );
 }
 
-export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
+export function AppSidebar({
+  onOpenHelp,
+  onOpenSettings,
+}: {
+  onOpenHelp(): void;
+  onOpenSettings(): void;
+}) {
   const {
     notes,
     noteId,
@@ -193,6 +200,14 @@ export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
       </ScrollArea>
       <div className="p-2">
         <Separator className="mb-2" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-muted-foreground"
+          onClick={onOpenHelp}
+        >
+          <CircleHelp /> Help
+        </Button>
         <Button
           variant="ghost"
           size="sm"
