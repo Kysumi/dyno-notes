@@ -34,4 +34,6 @@
 
 # Running the app
 
-- Running the app is via the command `deno desktop --hmr main.ts`.
+- Never run the app. Always ask the developer to perform runtime or UI checks
+  and state exactly what they should verify.
+- The developer runs the app via `deno desktop --hmr main.ts`.
