@@ -75,6 +75,8 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
     (await requireWorkspace()).create(input),
   notesSave: async (input: Parameters<Workspace["save"]>[0]) =>
     (await requireWorkspace()).save(input),
+  notesDelete: async (id: string) =>
+    (await requireWorkspace()).delete(id),
   notesImport: async (files: ImportFilePayload[]) =>
     (await requireWorkspace()).import(
       files.map((file) => ({

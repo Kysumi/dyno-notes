@@ -39,6 +39,75 @@
   --sidebar-ring: oklch(0.709 0.01 56.259);
 }
 
+.dark {
+  --background: oklch(0.147 0.004 49.25);
+  --foreground: oklch(0.985 0.001 106.423);
+  --card: oklch(0.216 0.006 56.043);
+  --card-foreground: oklch(0.985 0.001 106.423);
+  --popover: oklch(0.216 0.006 56.043);
+  --popover-foreground: oklch(0.985 0.001 106.423);
+  --primary-foreground: oklch(0.147 0.004 49.25);
+  --secondary: oklch(0.268 0.007 34.298);
+  --secondary-foreground: oklch(0.985 0.001 106.423);
+  --muted: oklch(0.268 0.007 34.298);
+  --muted-foreground: oklch(0.709 0.01 56.259);
+  --accent: oklch(0.268 0.007 34.298);
+  --accent-foreground: oklch(0.985 0.001 106.423);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --sidebar: oklch(0.216 0.006 56.043);
+  --sidebar-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-accent: oklch(0.268 0.007 34.298);
+  --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-border: oklch(1 0 0 / 10%);
+}
+
+:root[data-colorway="spruce"] {
+  --primary: oklch(0.432 0.095 166.913);
+  --ring: oklch(0.596 0.145 163.225);
+}
+
+:root[data-colorway="ink"] {
+  --primary: oklch(0.488 0.243 264.376);
+  --ring: oklch(0.623 0.214 259.815);
+}
+
+:root[data-colorway="aubergine"] {
+  --primary: oklch(0.491 0.27 292.581);
+  --ring: oklch(0.606 0.25 292.717);
+}
+
+:root[data-colorway="clay"] {
+  --primary: oklch(0.553 0.195 38.402);
+  --ring: oklch(0.646 0.222 41.116);
+}
+
+:root[data-colorway="graphite"] {
+  --primary: oklch(0.374 0.01 67.558);
+  --ring: oklch(0.553 0.013 58.071);
+}
+
+.dark[data-colorway="spruce"] {
+  --primary: oklch(0.696 0.17 162.48);
+}
+
+.dark[data-colorway="ink"] {
+  --primary: oklch(0.707 0.165 254.624);
+}
+
+.dark[data-colorway="aubergine"] {
+  --primary: oklch(0.702 0.183 293.541);
+}
+
+.dark[data-colorway="clay"] {
+  --primary: oklch(0.75 0.183 55.934);
+}
+
+.dark[data-colorway="graphite"] {
+  --primary: oklch(0.709 0.01 56.259);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

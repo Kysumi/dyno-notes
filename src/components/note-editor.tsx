@@ -25,6 +25,7 @@ import {
   Presentation,
   Quote,
   Strikethrough,
+  Trash2,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
@@ -284,7 +285,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b bg-stone-50/70 p-1.5">
+    <div className="flex flex-wrap items-center gap-0.5 border-b bg-muted/30 p-1.5">
       <ToolbarButton
         label="Paragraph"
         active={state.paragraph}
@@ -463,6 +464,48 @@ function ConflictDialogs() {
   );
 }
 
+function DeleteDialog() {
+  const { note, deleteNote } = useNotes();
+  const [open, setOpen] = useState(false);
+
+  if (!note) return null;
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        onClick={() => setOpen(true)}
+        aria-label="Delete note"
+        title="Delete note"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the file from your workspace. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void deleteNote(note.id)}
+            >
+              Delete note
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 const WysiwygEditor = memo(function WysiwygEditor() {
   const {
     draft,
@@ -577,7 +620,7 @@ export function NoteEditor() {
 
   if (loading) {
     return (
-      <main className="grid min-w-0 place-items-center bg-white">
+      <main className="grid min-w-0 place-items-center bg-background">
         <p className="text-sm text-muted-foreground">Opening your workspace…</p>
       </main>
     );
@@ -585,7 +628,7 @@ export function NoteEditor() {
 
   if (!note) {
     return (
-      <main className="grid min-w-0 place-items-center bg-white p-6">
+      <main className="grid min-w-0 place-items-center bg-background p-6">
         <Card className="max-w-lg">
           <CardHeader>
             <CardTitle>Dyno Notes could not start</CardTitle>
@@ -602,7 +645,7 @@ export function NoteEditor() {
   }
 
   return (
-    <main className="min-w-0 overflow-y-auto bg-stone-50/40">
+    <main className="min-w-0 overflow-y-auto bg-background">
       <div className="mx-auto w-full max-w-3xl px-6 pt-10 pb-24 sm:px-10 sm:pt-14">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -621,13 +664,16 @@ export function NoteEditor() {
               Source
             </Button>
           </div>
-          <Badge
-            variant={status === "conflict" || status === "error"
-              ? "destructive"
-              : "outline"}
-          >
-            {statusLabel[status]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={status === "conflict" || status === "error"
+                ? "destructive"
+                : "outline"}
+            >
+              {statusLabel[status]}
+            </Badge>
+            <DeleteDialog />
+          </div>
         </div>
 
         {error

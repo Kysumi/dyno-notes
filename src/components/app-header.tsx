@@ -110,8 +110,8 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
         variant="outline"
         size="sm"
         className={compact
-          ? "h-8 w-8 justify-center bg-white/70 text-muted-foreground shadow-xs [-webkit-app-region:no-drag]"
-          : "h-8 w-8 justify-center bg-white/70 text-xs font-normal text-muted-foreground shadow-xs sm:w-full sm:justify-between [-webkit-app-region:no-drag]"}
+          ? "h-8 w-8 justify-center bg-background/70 text-muted-foreground shadow-xs [-webkit-app-region:no-drag]"
+          : "h-8 w-8 justify-center bg-background/70 text-xs font-normal text-muted-foreground shadow-xs sm:w-full sm:justify-between [-webkit-app-region:no-drag]"}
         aria-label="Search or create a page"
         onClick={() => setOpen(true)}
       >
@@ -124,7 +124,7 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
         {compact
           ? null
           : (
-            <kbd className="hidden rounded border bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] sm:block">
+            <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:block">
               ⌘K / ⌘P
             </kbd>
           )}
@@ -138,7 +138,7 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
         }}
         title="Search or create a page"
         description="Search your notes or create a page from the entered title."
-        className="border-emerald-950/20 shadow-2xl sm:max-w-xl"
+        className="border-primary/20 shadow-2xl sm:max-w-xl"
       >
         <CommandInput
           value={query}
@@ -191,7 +191,7 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
                     });
                   }}
                 >
-                  <FilePlus2 className="text-emerald-800" />
+                  <FilePlus2 className="text-primary" />
                   <span className="min-w-0 truncate">
                     Create <strong className="font-medium">“{title}”</strong>
                   </span>
@@ -201,7 +201,7 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
             )
             : null}
         </CommandList>
-        <div className="flex items-center justify-end gap-3 border-t bg-stone-50 px-3 py-2 font-mono text-[10px] text-muted-foreground">
+        <div className="flex items-center justify-end gap-3 border-t bg-muted/40 px-3 py-2 font-mono text-[10px] text-muted-foreground">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span>esc close</span>
@@ -254,10 +254,10 @@ function JournalCalendar({ date }: { date: string }) {
               type="button"
               variant="ghost"
               className={selected
-                ? "h-10 min-w-0 flex-col gap-0 rounded-lg bg-emerald-900 px-1 text-stone-50 hover:bg-emerald-800 hover:text-stone-50"
+                ? "h-10 min-w-0 flex-col gap-0 rounded-lg bg-primary px-1 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                 : value === today
-                ? "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-emerald-950 ring-1 ring-emerald-700/40"
-                : "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-stone-600"}
+                ? "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-primary ring-1 ring-primary/40"
+                : "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-muted-foreground"}
               aria-label={`${journalTitle(value)}${
                 hasEntry ? ", has journal entry" : ""
               }`}
@@ -311,9 +311,9 @@ export function AppHeader() {
   const journalDate = journalDateFromId(noteId ?? "");
 
   return (
-    <header className="col-span-full grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-stone-50/95 px-3 [-webkit-app-region:drag] sm:gap-4 lg:grid-cols-[1fr_minmax(26rem,38rem)_1fr]">
+    <header className="col-span-full grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-background/95 px-3 [-webkit-app-region:drag] sm:gap-4 lg:grid-cols-[1fr_minmax(26rem,38rem)_1fr]">
       <div className="flex min-w-0 items-center gap-2 [-webkit-app-region:no-drag]">
-        <span className="grid size-7 place-items-center rounded-lg bg-emerald-900 font-serif text-base font-bold text-stone-50">
+        <span className="grid size-7 place-items-center rounded-lg bg-primary font-serif text-base font-bold text-primary-foreground">
           D
         </span>
         <span className="hidden font-semibold tracking-tight sm:inline">

@@ -57,6 +57,7 @@ export interface DesktopBindings {
     source: string;
     expectedRevision: string;
   }): Promise<{ revision: string; updatedAt: string }>;
+  notesDelete(id: NoteId): Promise<void>;
   notesImport(
     files: Array<{ name: string; bytes: Uint8Array }>,
   ): Promise<NoteSummary[]>;

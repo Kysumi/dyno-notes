@@ -21,7 +21,7 @@ function visit(node: JSONContent, callback: (node: JSONContent) => void): void {
 export function PageContext() {
   const { note, notes, draft, backlinks, openNote } = useNotes();
   if (!note) {
-    return <aside className="hidden border-l bg-stone-100/60 xl:block" />;
+    return <aside className="hidden border-l bg-muted/30 xl:block" />;
   }
 
   const headings: Array<{ title: string; level: number }> = [];
@@ -48,7 +48,7 @@ export function PageContext() {
   const summary = notes.find((candidate) => candidate.id === note.id);
 
   return (
-    <aside className="hidden min-h-0 border-l bg-stone-100/60 xl:block">
+    <aside className="hidden min-h-0 border-l bg-muted/30 xl:block">
       <ScrollArea className="h-full">
         <div className="space-y-6 p-4">
           <section className="space-y-2">

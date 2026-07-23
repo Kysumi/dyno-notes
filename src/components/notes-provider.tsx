@@ -118,6 +118,7 @@ interface NotesContextValue {
   openNote(id: NoteId, blockId?: string): Promise<boolean>;
   followWikiLink(rawTarget: string): Promise<boolean>;
   createPage(title: string): Promise<boolean>;
+  deleteNote(id: NoteId): Promise<boolean>;
   importFiles(files: File[]): Promise<string[]>;
   saveNow(): Promise<boolean>;
   keepMine(): Promise<void>;
@@ -142,6 +143,7 @@ interface NavigationContextValue {
   deleteTaskView(id: string): void;
   openJournal(date: string): Promise<boolean>;
   createPage(title: string): Promise<boolean>;
+  deleteNote(id: NoteId): Promise<boolean>;
   importFiles(files: File[]): Promise<string[]>;
 }
 
@@ -580,6 +582,28 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     return failures;
   }, [openNote]);
 
+  const deleteNote = useCallback(async (id: NoteId) => {
+    try {
+      await desktop.notesDelete(id);
+      const remainingNotes = await desktop.notesList();
+      setNotes(remainingNotes);
+      if (id === activeIdRef.current) {
+        if (remainingNotes.length > 0) {
+          // Open another note, preferably a page
+          const fallback = remainingNotes.find(n => n.kind === "page") || remainingNotes[0];
+          await openNote(fallback.id);
+        } else {
+          // No notes left, fallback to today's journal
+          await openNote(`journals/${dateValue()}.md`);
+        }
+      }
+      return true;
+    } catch (failure) {
+      setError(message(failure));
+      return false;
+    }
+  }, [openNote]);
+
   const setMode = useCallback((mode: EditorMode) => {
     if (mode === draftRef.current.mode) return true;
     if (mode === "source") {
@@ -660,6 +684,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     openNote,
     followWikiLink,
     createPage,
+    deleteNote,
     importFiles,
     saveNow,
     keepMine,
@@ -683,6 +708,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     openNote,
     followWikiLink,
     createPage,
+    deleteNote,
     importFiles,
     saveNow,
     keepMine,
@@ -710,6 +736,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     deleteTaskView,
     openJournal,
     createPage,
+    deleteNote,
     importFiles,
   }), [
     workspacePath,
@@ -725,6 +752,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     deleteTaskView,
     openJournal,
     createPage,
+    deleteNote,
     importFiles,
   ]);
 

@@ -262,11 +262,11 @@ export function TaskView({ view }: { view: TaskViewDefinition }) {
   );
 
   return (
-    <main className="min-h-0 overflow-auto bg-stone-50 xl:col-span-2">
+    <main className="min-h-0 overflow-auto bg-background xl:col-span-2">
       <div className="mx-auto flex min-h-full max-w-7xl flex-col gap-5 p-5 sm:p-8">
         <header className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold tracking-[0.14em] text-emerald-800 uppercase">
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold tracking-[0.14em] text-primary uppercase">
               <ListFilter className="size-3.5" /> Task view
             </div>
             <h1 className="font-serif text-3xl font-semibold tracking-tight">
@@ -282,7 +282,7 @@ export function TaskView({ view }: { view: TaskViewDefinition }) {
         </header>
 
         <section aria-label="View filters" className="space-y-3">
-          <p className="overflow-hidden rounded-md border border-emerald-900/15 bg-emerald-950 px-3 py-2 font-mono text-xs text-emerald-50">
+          <p className="overflow-hidden rounded-md border border-primary/15 bg-primary px-3 py-2 font-mono text-xs text-primary-foreground">
             {queryLabel(filters, notes)}
           </p>
           <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_10rem_minmax(12rem,16rem)_auto]">
@@ -334,7 +334,7 @@ export function TaskView({ view }: { view: TaskViewDefinition }) {
 
         <div className="overflow-hidden rounded-lg border bg-background shadow-xs">
           <Table>
-            <TableHeader className="bg-stone-100/80">
+            <TableHeader className="bg-muted/60">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (

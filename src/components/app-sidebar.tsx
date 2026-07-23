@@ -40,7 +40,7 @@ function NewPageDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <Button
         size="sm"
-        className="w-full justify-start bg-emerald-900 shadow-none hover:bg-emerald-800"
+        className="w-full justify-start shadow-none"
         onClick={() => setOpen(true)}
       >
         <Plus /> New page
@@ -78,72 +78,7 @@ function NewPageDialog() {
   );
 }
 
-function ImportDialog() {
-  const { importFiles } = useNavigation();
-  const [open, setOpen] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [failures, setFailures] = useState<string[]>([]);
-  const [importing, setImporting] = useState(false);
-
-  const runImport = async () => {
-    setImporting(true);
-    const nextFailures = await importFiles(files);
-    setFailures(nextFailures);
-    setImporting(false);
-    if (!nextFailures.length) {
-      setFiles([]);
-      setOpen(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full justify-start text-stone-700"
-        onClick={() => setOpen(true)}
-      >
-        <Settings /> Settings & import
-      </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Import Markdown</DialogTitle>
-          <DialogDescription>
-            Files are copied into the managed pages folder. Their source remains
-            plain Markdown.
-          </DialogDescription>
-        </DialogHeader>
-        <Input
-          type="file"
-          accept=".md,text/markdown"
-          multiple
-          onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
-        />
-        {failures.length
-          ? (
-            <ul className="list-disc space-y-1 pl-5 text-sm text-destructive">
-              {failures.map((failure) => <li key={failure}>{failure}</li>)}
-            </ul>
-          )
-          : null}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            disabled={!files.length || importing}
-            onClick={() => void runImport()}
-          >
-            {importing ? "Importing…" : `Import ${files.length || ""}`.trim()}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function AppSidebar() {
+export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
   const {
     notes,
     noteId,
@@ -167,8 +102,8 @@ export function AppSidebar() {
       variant="ghost"
       size="sm"
       className={noteId === id
-        ? "w-full justify-start bg-stone-200 text-emerald-950 hover:bg-stone-200"
-        : "w-full justify-start font-normal text-stone-700"}
+        ? "w-full justify-start bg-accent text-accent-foreground hover:bg-accent"
+        : "w-full justify-start font-normal text-muted-foreground"}
       onClick={() => void openNote(id)}
     >
       {icon === "journal"
@@ -181,7 +116,7 @@ export function AppSidebar() {
   );
 
   return (
-    <aside className="hidden min-h-0 border-r bg-stone-100/80 md:flex md:flex-col">
+    <aside className="hidden min-h-0 border-r bg-muted/50 md:flex md:flex-col">
       <div className="p-3">
         <NewPageDialog />
       </div>
@@ -197,8 +132,8 @@ export function AppSidebar() {
                 variant="ghost"
                 size="sm"
                 className={activeTaskView?.id === view.id
-                  ? "min-w-0 flex-1 justify-start bg-stone-200 text-emerald-950 hover:bg-stone-200"
-                  : "min-w-0 flex-1 justify-start font-normal text-stone-700"}
+                  ? "min-w-0 flex-1 justify-start bg-accent text-accent-foreground hover:bg-accent"
+                  : "min-w-0 flex-1 justify-start font-normal text-muted-foreground"}
                 onClick={() =>
                   void openTaskView(view.id)}
               >
@@ -232,7 +167,14 @@ export function AppSidebar() {
       </ScrollArea>
       <div className="p-2">
         <Separator className="mb-2" />
-        <ImportDialog />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-muted-foreground"
+          onClick={onOpenSettings}
+        >
+          <Settings /> Settings
+        </Button>
       </div>
     </aside>
   );

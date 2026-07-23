@@ -38,6 +38,7 @@ export const desktop: DesktopBindings = {
   notesRead: (id) => call("notesRead", [id]),
   notesCreate: (input) => call("notesCreate", [input]),
   notesSave: (input) => call("notesSave", [input]),
+  notesDelete: (id) => call("notesDelete", [id]),
   notesImport: (files) =>
     call(
       "notesImport",

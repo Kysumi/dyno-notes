@@ -615,6 +615,19 @@ export class Workspace {
     return matches.length === 1 ? matches[0] : null;
   }
 
+  async delete(id: NoteId): Promise<void> {
+    try {
+      const target = await this.#resolveId(id);
+      await Deno.remove(target);
+    } catch (error) {
+      if (!(error instanceof AppError) || error.name !== "NotFound") {
+        throw error;
+      }
+    }
+    this.#notes.delete(id);
+    this.#rebuildBacklinks();
+  }
+
   #rebuildBacklinks(): void {
     this.#backlinks.clear();
     for (const [sourceId, note] of this.#notes) {
