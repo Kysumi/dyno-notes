@@ -286,10 +286,18 @@ function SaveViewDialog({ filters }: { filters: PageViewFilters }) {
 }
 
 export function PageView({ view }: { view: PageViewDefinition }) {
-  const { notes, openNote } = useNavigation();
-  const [filters, setFilters] = useState<PageViewFilters>(() => ({
+  const { notes, openNote, updatePageView } = useNavigation();
+  const [draftFilters, setDraftFilters] = useState<PageViewFilters>(() => ({
     ...view.filters,
   }));
+  const filters = view.custom ? view.filters : draftFilters;
+  const changeFilters = (
+    update: (current: PageViewFilters) => PageViewFilters,
+  ) => {
+    const next = update(filters);
+    if (view.custom) updatePageView(view.id, next);
+    else setDraftFilters(next);
+  };
   const [sorting, setSorting] = useState<SortingState>([
     { id: "updatedAt", desc: true },
   ]);
@@ -397,7 +405,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               {rows.length} of {notes.length} pages
             </p>
           </div>
-          <SaveViewDialog filters={filters} />
+          {view.custom ? null : <SaveViewDialog filters={filters} />}
         </header>
 
         <section aria-label="View filters" className="space-y-3">
@@ -408,7 +416,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
             <Input
               value={filters.query}
               onChange={(event) =>
-                setFilters((current) => ({
+                changeFilters((current) => ({
                   ...current,
                   query: event.target.value,
                 }))
@@ -420,7 +428,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
             <Button
               variant={filters.hasOpenTasks ? "default" : "outline"}
               onClick={() =>
-                setFilters((curr) => ({
+                changeFilters((curr) => ({
                   ...curr,
                   hasOpenTasks: !curr.hasOpenTasks,
                 }))
@@ -432,7 +440,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               options={tagOptions}
               value={filters.tag}
               onValueChange={(tag) =>
-                setFilters((current) => ({
+                changeFilters((current) => ({
                   ...current,
                   tag,
                 }))
@@ -446,7 +454,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               options={attributeOptions}
               value={filters.attributeKey}
               onValueChange={(attributeKey) =>
-                setFilters((current) => ({
+                changeFilters((current) => ({
                   ...current,
                   attributeKey,
                 }))
@@ -460,13 +468,13 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               variant="ghost"
               size="sm"
               onClick={() =>
-                setFilters({
+                changeFilters(() => ({
                   query: "",
                   hasOpenTasks: false,
                   tag: null,
                   attributeKey: null,
                   showAs: "pages",
-                })
+                }))
               }
             >
               <RotateCcw /> Reset
@@ -479,7 +487,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
           value={filters.showAs ?? "pages"}
           onValueChange={(showAs) => {
             if (showAs !== "pages" && showAs !== "tasks") return;
-            setFilters((current) => ({
+            changeFilters((current) => ({
               ...current,
               showAs,
             }));

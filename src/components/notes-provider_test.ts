@@ -1,6 +1,9 @@
 import { deepStrictEqual, strictEqual } from "node:assert/strict";
 
-import { pushNavigationHistory } from "./notes-provider.tsx";
+import {
+  pushNavigationHistory,
+  updatePageViewFilters,
+} from "./notes-provider.tsx";
 
 Deno.test("navigation history ignores duplicates and drops the forward branch", () => {
   const first = pushNavigationHistory(
@@ -19,4 +22,40 @@ Deno.test("navigation history ignores duplicates and drops the forward branch", 
       index: 1,
     },
   );
+});
+
+Deno.test("view filter changes update only the selected custom view", () => {
+  const original = [
+    {
+      id: "one",
+      name: "One",
+      filters: {
+        query: "",
+        hasOpenTasks: false,
+        tag: null,
+        attributeKey: null,
+        showAs: "pages" as const,
+      },
+      custom: true,
+    },
+    {
+      id: "two",
+      name: "Two",
+      filters: {
+        query: "",
+        hasOpenTasks: false,
+        tag: null,
+        attributeKey: null,
+        showAs: "pages" as const,
+      },
+      custom: true,
+    },
+  ];
+  const updated = updatePageViewFilters(original, "one", {
+    ...original[0].filters,
+    tag: "project",
+  });
+
+  strictEqual(updated[0].filters.tag, "project");
+  strictEqual(updated[1], original[1]);
 });

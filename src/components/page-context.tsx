@@ -84,7 +84,9 @@ export function PageContext() {
                   week: { from: selectedWeek[0], to: selectedWeek[6] },
                 }}
                 modifiersClassNames={{
-                  week: "[&>button]:bg-accent [&>button]:text-accent-foreground",
+                  week: "[&>button]:bg-muted/60 [&>button]:text-muted-foreground",
+                  today:
+                    "[&>button]:text-primary [&>button]:ring-1 [&>button]:ring-primary/40",
                 }}
                 onSelect={(selectedDate) => {
                   if (selectedDate) {

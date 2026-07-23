@@ -291,12 +291,16 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                   </p>
                 </HelpRow>
                 <Separator />
-                <HelpRow title="Save a view">
+                <HelpRow title="Create a view">
                   <p>
-                    After setting the filters and display mode, choose{" "}
+                    Choose the <strong className="text-foreground">+</strong>{" "}
+                    beside Views, name the view, then set its filters and
+                    display mode. Changes save automatically on this device. Use
+                    the trash button beside a custom view to remove it.
+                  </p>
+                  <p>
+                    To copy the built-in Open tasks view, adjust it and choose{" "}
                     <strong className="text-foreground">Save as view</strong>.
-                    Saved views appear in the sidebar on this device. Use the
-                    trash button beside a custom view to remove it.
                   </p>
                 </HelpRow>
               </HelpSection>

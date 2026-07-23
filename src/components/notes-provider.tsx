@@ -44,14 +44,20 @@ export interface PageViewDefinition {
   custom: boolean;
 }
 
+const EMPTY_PAGE_VIEW_FILTERS: PageViewFilters = {
+  query: "",
+  hasOpenTasks: false,
+  tag: null,
+  attributeKey: null,
+  showAs: "pages",
+};
+
 const OPEN_TASKS_VIEW: PageViewDefinition = {
   id: "open-tasks",
   name: "Open tasks",
   filters: {
-    query: "",
+    ...EMPTY_PAGE_VIEW_FILTERS,
     hasOpenTasks: true,
-    tag: null,
-    attributeKey: null,
     showAs: "tasks",
   },
   custom: false,
@@ -156,7 +162,8 @@ interface NavigationContextValue {
   goForward(): Promise<boolean>;
   openNote(id: NoteId, blockId?: string): Promise<boolean>;
   openPageView(id: string): Promise<boolean>;
-  createPageView(name: string, filters: PageViewFilters): string;
+  createPageView(name: string, filters?: PageViewFilters): string;
+  updatePageView(id: string, filters: PageViewFilters): void;
   deletePageView(id: string): void;
   openJournal(date: string): Promise<boolean>;
   createPage(title: string): Promise<boolean>;
@@ -200,6 +207,16 @@ export function pushNavigationHistory(
   if (history.entries[history.index]?.id === entry.id) return history;
   const entries = [...history.entries.slice(0, history.index + 1), entry];
   return { entries, index: entries.length - 1 };
+}
+
+export function updatePageViewFilters(
+  views: PageViewDefinition[],
+  id: string,
+  filters: PageViewFilters,
+): PageViewDefinition[] {
+  return views.map((view) =>
+    view.id === id ? { ...view, filters: { ...filters } } : view,
+  );
 }
 
 function sourceForDraft(draft: Draft): string {
@@ -511,12 +528,12 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   );
 
   const createPageView = useCallback(
-    (name: string, filters: PageViewFilters) => {
+    (name: string, filters = EMPTY_PAGE_VIEW_FILTERS) => {
       const id = crypto.randomUUID();
       const view: PageViewDefinition = {
         id,
         name: name.trim().slice(0, 80),
-        filters,
+        filters: { ...filters },
         custom: true,
       };
       setCustomPageViews((current) => [...current, view]);
@@ -525,6 +542,12 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  const updatePageView = useCallback((id: string, filters: PageViewFilters) => {
+    setCustomPageViews((current) =>
+      updatePageViewFilters(current, id, filters),
+    );
+  }, []);
 
   const deletePageView = useCallback((id: string) => {
     setCustomPageViews((current) => current.filter((view) => view.id !== id));
@@ -791,6 +814,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       openNote,
       openPageView,
       createPageView,
+      updatePageView,
       deletePageView,
       openJournal,
       createPage,
@@ -808,6 +832,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       openNote,
       openPageView,
       createPageView,
+      updatePageView,
       deletePageView,
       openJournal,
       createPage,

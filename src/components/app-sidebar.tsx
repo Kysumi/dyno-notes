@@ -20,11 +20,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
 import { dateValue } from "@/lib/dates.ts";
@@ -77,6 +72,70 @@ function NewPageDialog() {
               Cancel
             </Button>
             <Button type="submit">Create page</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NewViewDialog() {
+  const { createPageView } = useNavigation();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!name.trim()) return;
+    createPageView(name);
+    setOpen(false);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setName("");
+      }}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 text-muted-foreground hover:bg-transparent hover:text-foreground"
+        onClick={() => setOpen(true)}
+      >
+        <Plus className="h-4 w-4" />
+        <span className="sr-only">New view</span>
+      </Button>
+      <DialogContent>
+        <form className="space-y-4" onSubmit={submit}>
+          <DialogHeader>
+            <DialogTitle>New view</DialogTitle>
+            <DialogDescription>
+              Name the view, then configure its filters.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="View name"
+            aria-label="View name"
+            maxLength={80}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!name.trim()}>
+              Create view
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -141,24 +200,7 @@ export function AppSidebar({
             <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
               Views
             </p>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 text-muted-foreground hover:bg-transparent hover:text-foreground"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="sr-only">How to create a view</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent side="right" className="text-sm w-64 space-y-2">
-                <p>
-                  To create a new view, use the <strong>global search</strong>{" "}
-                  to filter pages, then click <strong>Save as view</strong>.
-                </p>
-              </PopoverContent>
-            </Popover>
+            <NewViewDialog />
           </div>
           {pageViews.map((view) => (
             <div key={view.id} className="flex min-w-0 items-center gap-0.5">
