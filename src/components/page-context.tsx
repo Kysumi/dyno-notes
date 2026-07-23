@@ -82,9 +82,18 @@ export function PageContext() {
                 selected={selectedDate}
                 modifiers={{
                   week: { from: selectedWeek[0], to: selectedWeek[6] },
+                  week_start: selectedWeek[0],
+                  week_middle: {
+                    after: selectedWeek[0],
+                    before: selectedWeek[6],
+                  },
+                  week_end: selectedWeek[6],
                 }}
                 modifiersClassNames={{
                   week: "[&>button]:bg-muted/60 [&>button]:text-muted-foreground",
+                  week_start: "[&>button]:rounded-r-none",
+                  week_middle: "[&>button]:rounded-none",
+                  week_end: "[&>button]:rounded-l-none",
                   today:
                     "[&>button]:text-primary [&>button]:ring-1 [&>button]:ring-primary/40",
                 }}
