@@ -1,12 +1,14 @@
 import type { JSONContent } from "@tiptap/core";
 import { ChevronRight, FileText, Link } from "lucide-react";
 
-import { useNotes } from "@/components/notes-provider.tsx";
+import { useNavigation, useNotes } from "@/components/notes-provider.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
+import { dateValue, journalDateFromId } from "@/lib/dates.ts";
 import { scanMarkdown } from "@/lib/markdown-scanner.ts";
 
 function text(node: JSONContent): string {
@@ -18,8 +20,19 @@ function visit(node: JSONContent, callback: (node: JSONContent) => void): void {
   for (const child of node.content ?? []) visit(child, callback);
 }
 
+function focusEditor(): void {
+  requestAnimationFrame(() =>
+    document
+      .querySelector<HTMLElement>(
+        '[aria-label="Note body"], [aria-label="Markdown source"]',
+      )
+      ?.focus(),
+  );
+}
+
 export function PageContext() {
   const { note, notes, draft, backlinks, openNote } = useNotes();
+  const { openJournal } = useNavigation();
   if (!note) {
     return <aside className="hidden border-l bg-muted/30 xl:block" />;
   }
@@ -47,10 +60,29 @@ export function PageContext() {
   }
   const summary = notes.find((candidate) => candidate.id === note.id);
 
+  const journalDate = journalDateFromId(note.id);
+
   return (
     <aside className="hidden min-h-0 border-l bg-muted/30 xl:block">
       <ScrollArea className="h-full [&_[data-slot=scroll-area-viewport]>div]:!block">
         <div className="space-y-6 p-4">
+          {journalDate && (
+            <section className="flex justify-center">
+              <CalendarComponent
+                mode="single"
+                selected={new Date(`${journalDate}T12:00:00`)}
+                onSelect={(selectedDate) => {
+                  if (selectedDate) {
+                    void openJournal(dateValue(selectedDate)).then((opened) => {
+                      if (opened) focusEditor();
+                    });
+                  }
+                }}
+                className="[--cell-size:28px] p-0 bg-transparent"
+              />
+            </section>
+          )}
+
           <section className="space-y-2">
             <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
               Outline

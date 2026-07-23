@@ -20,7 +20,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command.tsx";
-import { Input } from "@/components/ui/input.tsx";
+
 import {
   Tooltip,
   TooltipContent,
@@ -304,15 +304,8 @@ function JournalCalendar({ date }: { date: string }) {
 }
 
 export function AppHeader() {
-  const {
-    canGoBack,
-    canGoForward,
-    goBack,
-    goForward,
-    noteId,
-    openJournal,
-    workspacePath,
-  } = useNavigation();
+  const { canGoBack, canGoForward, goBack, goForward, noteId, workspacePath } =
+    useNavigation();
   const journalDate = journalDateFromId(noteId ?? "");
 
   return (
@@ -371,21 +364,6 @@ export function AppHeader() {
       {journalDate ? (
         <div className="flex items-center justify-end gap-2 [-webkit-app-region:no-drag]">
           <CommandPalette compact />
-          <Input
-            type="date"
-            value={journalDate}
-            aria-label="Jump to journal date"
-            title="Jump to journal date"
-            className="h-8 w-8 cursor-pointer px-1 text-transparent shadow-xs md:w-32 md:px-2 md:text-foreground [&::-webkit-calendar-picker-indicator]:m-auto"
-            onChange={(event) => {
-              const date = event.target.value;
-              if (date) {
-                void openJournal(date).then((opened) => {
-                  if (opened) focusEditor();
-                });
-              }
-            }}
-          />
         </div>
       ) : (
         <p

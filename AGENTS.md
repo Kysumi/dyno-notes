@@ -36,7 +36,7 @@
 
 - Never run the app. Always ask the developer to perform runtime or UI checks
   and state exactly what they should verify.
-- The developer runs the app via `deno desktop --hmr main.ts`.
+- The developer runs the app via `deno task desktop:dev`.
 
 # Linting and formatting
 
