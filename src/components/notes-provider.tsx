@@ -34,6 +34,7 @@ export interface PageViewFilters {
   hasOpenTasks: boolean;
   tag: string | null;
   attributeKey: string | null;
+  showAs?: "pages" | "tasks";
 }
 
 export interface PageViewDefinition {
@@ -46,7 +47,7 @@ export interface PageViewDefinition {
 const OPEN_TASKS_VIEW: PageViewDefinition = {
   id: "open-tasks",
   name: "Open tasks",
-  filters: { query: "", hasOpenTasks: true, tag: null, attributeKey: null },
+  filters: { query: "", hasOpenTasks: true, tag: null, attributeKey: null, showAs: "tasks" },
   custom: false,
 };
 const PAGE_VIEWS_KEY = "dyno.pageViews.v1";
@@ -75,6 +76,7 @@ function storedPageViews(): PageViewDefinition[] {
           hasOpenTasks: filters.hasOpenTasks,
           tag: filters.tag,
           attributeKey: filters.attributeKey,
+          showAs: filters.showAs === "tasks" ? "tasks" : "pages",
         },
         custom: true,
       }];

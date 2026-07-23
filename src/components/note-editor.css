@@ -223,9 +223,7 @@
 .tiptap-editor .tiptap .tag-highlight {
   color: var(--primary);
   background-color: color-mix(in oklab, var(--primary) 15%, transparent);
-  padding: 0.1rem 0.3rem;
+  padding: 0 0.2rem;
   border-radius: var(--radius-sm);
   font-weight: 500;
-  display: inline-block;
-  line-height: 1.2;
 }

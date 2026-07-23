@@ -46,6 +46,7 @@
     "@/components/ui/dialog": "./src/components/ui/dialog.tsx",
     "@/components/ui/input": "./src/components/ui/input.tsx",
     "@/components/ui/input-group": "./src/components/ui/input-group.tsx",
+    "@/components/ui/toggle": "./src/components/ui/toggle.tsx",
     "@/components/ui/textarea": "./src/components/ui/textarea.tsx",
     "@/lib/utils": "./src/lib/utils.ts",
     "@radix-ui/react-slot": "npm:@radix-ui/react-slot@^1.3.0",
