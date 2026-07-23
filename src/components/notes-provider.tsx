@@ -16,6 +16,7 @@ import type {
   NoteId,
   NoteSummary,
 } from "@/lib/contracts.ts";
+import { dateValue, journalDateFromId, journalTitle } from "@/lib/dates.ts";
 import { desktop } from "@/lib/desktop.ts";
 import { parseMarkdown, serializeMarkdown } from "@/lib/markdown-codec.ts";
 import {
@@ -27,6 +28,62 @@ import {
 import { SaveCoordinator, type SaveStatus } from "@/lib/save-coordinator.ts";
 
 type EditorMode = "wysiwyg" | "source";
+
+export type TaskStatusFilter = "all" | "open" | "done";
+
+export interface TaskViewFilters {
+  query: string;
+  status: TaskStatusFilter;
+  sourceId: NoteId | null;
+}
+
+export interface TaskViewDefinition {
+  id: string;
+  name: string;
+  filters: TaskViewFilters;
+  custom: boolean;
+}
+
+const OPEN_TASKS_VIEW: TaskViewDefinition = {
+  id: "open-tasks",
+  name: "Open tasks",
+  filters: { query: "", status: "open", sourceId: null },
+  custom: false,
+};
+const TASK_VIEWS_KEY = "dyno.taskViews.v1";
+
+function storedTaskViews(): TaskViewDefinition[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(TASK_VIEWS_KEY) ?? "[]");
+    if (!Array.isArray(stored)) return [];
+    return stored.flatMap((view): TaskViewDefinition[] => {
+      const filters = view?.filters;
+      if (
+        typeof view?.id !== "string" || !view.id || view.id.length > 100 ||
+        typeof view?.name !== "string" || !view.name.trim() ||
+        view.name.length > 80 || typeof filters?.query !== "string" ||
+        filters.query.length > 200 ||
+        !["all", "open", "done"].includes(filters?.status) ||
+        !(filters?.sourceId === null ||
+          (typeof filters?.sourceId === "string" &&
+            filters.sourceId.length <= 1000))
+      ) return [];
+      return [{
+        id: view.id,
+        name: view.name.trim(),
+        filters: {
+          query: filters.query,
+          status: filters.status,
+          sourceId: filters.sourceId,
+        },
+        custom: true,
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
 
 export interface Draft {
   title: string;
@@ -73,11 +130,17 @@ interface NavigationContextValue {
   workspacePath: string;
   notes: NoteSummary[];
   noteId: NoteId | null;
+  taskViews: TaskViewDefinition[];
+  activeTaskView: TaskViewDefinition | null;
   canGoBack: boolean;
   canGoForward: boolean;
   goBack(): Promise<boolean>;
   goForward(): Promise<boolean>;
   openNote(id: NoteId, blockId?: string): Promise<boolean>;
+  openTaskView(id: string): Promise<boolean>;
+  createTaskView(name: string, filters: TaskViewFilters): string;
+  deleteTaskView(id: string): void;
+  openJournal(date: string): Promise<boolean>;
   createPage(title: string): Promise<boolean>;
   importFiles(files: File[]): Promise<string[]>;
 }
@@ -120,14 +183,6 @@ export function pushNavigationHistory(
   return { entries, index: entries.length - 1 };
 }
 
-function today(): string {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function sourceForDraft(draft: Draft): string {
   return draft.mode === "source"
     ? draft.source
@@ -138,6 +193,28 @@ function message(error: unknown): string {
   return error instanceof Error
     ? error.message
     : "The request could not be completed.";
+}
+
+function emptyJournal(date: string): NoteFile {
+  const title = journalTitle(date);
+  return {
+    id: `journals/${date}.md`,
+    kind: "journal",
+    title,
+    source: `# ${title}\n`,
+    revision: "",
+    eol: "\n",
+  };
+}
+
+async function readNote(id: NoteId): Promise<NoteFile> {
+  try {
+    return await desktop.notesRead(id);
+  } catch (error) {
+    const date = journalDateFromId(id);
+    if ((error as Error)?.name !== "NotFound" || !date) throw error;
+    return emptyJournal(date);
+  }
 }
 
 export function NotesProvider({ children }: { children: ReactNode }) {
@@ -165,6 +242,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       index: -1,
     },
   );
+  const [customTaskViews, setCustomTaskViews] = useState(storedTaskViews);
+  const [activeTaskViewId, setActiveTaskViewId] = useState<string | null>(null);
 
   const draftRef = useRef(draft);
   const noteRef = useRef(note);
@@ -190,18 +269,18 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         };
         noteRef.current = updated;
         setNote(updated);
-        setNotes((current) =>
-          current.map((summary) =>
-            summary.id === snapshot.id
-              ? {
-                ...summary,
-                title: draftRef.current.title,
-                updatedAt: result.updatedAt,
-                wordCount: scanMarkdown(snapshot.source).wordCount,
-              }
-              : summary
-          )
-        );
+        setNotes((current) => {
+          const summary: NoteSummary = {
+            id: snapshot.id,
+            kind: updated.kind,
+            title: draftRef.current.title,
+            updatedAt: result.updatedAt,
+            wordCount: scanMarkdown(snapshot.source).wordCount,
+          };
+          return current.some((note) => note.id === snapshot.id)
+            ? current.map((note) => note.id === snapshot.id ? summary : note)
+            : [...current, summary];
+        });
         void desktop.notesBacklinks({ noteId: snapshot.id }).then(setBacklinks);
       },
       failed: async (failure, snapshot) => {
@@ -250,9 +329,14 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      setNotes(await desktop.notesList());
+      const summaries = await desktop.notesList();
+      setNotes(summaries);
       const id = activeIdRef.current;
       if (!id || !noteRef.current) return;
+      if (
+        !noteRef.current.revision &&
+        !summaries.some((summary) => summary.id === id)
+      ) return;
       const disk = await desktop.notesRead(id);
       if (disk.revision === noteRef.current.revision) return;
       if (coordinatorRef.current!.dirty) {
@@ -279,23 +363,14 @@ export function NotesProvider({ children }: { children: ReactNode }) {
           desktop.workspaceInfo(),
           desktop.notesList(),
         ]);
-        const date = today();
+        const date = dateValue();
         const journalId = `journals/${date}.md`;
         const file = summaries.some((summary) => summary.id === journalId)
           ? await desktop.notesRead(journalId)
-          : await desktop.notesCreate({
-            kind: "journal",
-            date,
-            title: new Intl.DateTimeFormat("en-NZ", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            }).format(new Date()),
-          });
+          : emptyJournal(date);
         if (cancelled) return;
         setWorkspacePath(info.path);
-        setNotes(await desktop.notesList());
+        setNotes(summaries);
         applyFile(file);
         const initialHistory = { entries: [{ id: file.id }], index: 0 };
         navigationHistoryRef.current = initialHistory;
@@ -343,6 +418,14 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     };
   }, [saveNow]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(TASK_VIEWS_KEY, JSON.stringify(customTaskViews));
+    } catch {
+      // The views still work for this session if browser storage is unavailable.
+    }
+  }, [customTaskViews]);
+
   const updateDraft = useCallback((changes: Partial<Draft>) => {
     const next = { ...draftRef.current, ...changes };
     draftRef.current = next;
@@ -364,6 +447,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   const openNote = useCallback(async (id: NoteId, blockId?: string) => {
     if (id === activeIdRef.current) {
+      setActiveTaskViewId(null);
       if (blockId) {
         setFocusRequest((current) => ({
           blockId,
@@ -374,8 +458,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     }
     if (!await saveNow()) return false;
     try {
-      const file = await desktop.notesRead(id);
+      const file = await readNote(id);
       applyFile(file, blockId);
+      setActiveTaskViewId(null);
       recordNavigation(file.id, blockId);
       return true;
     } catch (failure) {
@@ -384,12 +469,49 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     }
   }, [applyFile, recordNavigation, saveNow]);
 
+  const openTaskView = useCallback(async (id: string) => {
+    if (!await saveNow()) return false;
+    if (
+      id !== OPEN_TASKS_VIEW.id &&
+      !customTaskViews.some((view) => view.id === id)
+    ) return false;
+    setActiveTaskViewId(id);
+    return true;
+  }, [customTaskViews, saveNow]);
+
+  const createTaskView = useCallback(
+    (name: string, filters: TaskViewFilters) => {
+      const id = crypto.randomUUID();
+      const view: TaskViewDefinition = {
+        id,
+        name: name.trim().slice(0, 80),
+        filters,
+        custom: true,
+      };
+      setCustomTaskViews((current) => [...current, view]);
+      setActiveTaskViewId(id);
+      return id;
+    },
+    [],
+  );
+
+  const deleteTaskView = useCallback((id: string) => {
+    setCustomTaskViews((current) => current.filter((view) => view.id !== id));
+    setActiveTaskViewId((current) =>
+      current === id ? OPEN_TASKS_VIEW.id : current
+    );
+  }, []);
+
   const moveHistory = useCallback(async (offset: -1 | 1) => {
+    if (activeTaskViewId && offset === -1) {
+      setActiveTaskViewId(null);
+      return true;
+    }
     const targetIndex = navigationHistoryRef.current.index + offset;
     const target = navigationHistoryRef.current.entries[targetIndex];
     if (!target || !await saveNow()) return false;
     try {
-      applyFile(await desktop.notesRead(target.id), target.blockId);
+      applyFile(await readNote(target.id), target.blockId);
       const next = { ...navigationHistoryRef.current, index: targetIndex };
       navigationHistoryRef.current = next;
       setNavigationHistory(next);
@@ -398,7 +520,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       setError(message(failure));
       return false;
     }
-  }, [applyFile, saveNow]);
+  }, [activeTaskViewId, applyFile, saveNow]);
 
   const followWikiLink = useCallback(async (rawTarget: string) => {
     const parsed = parseWikiTarget(rawTarget);
@@ -426,6 +548,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       const file = await desktop.notesCreate({ kind: "page", title });
       setNotes(await desktop.notesList());
       applyFile(file);
+      setActiveTaskViewId(null);
       recordNavigation(file.id);
       return true;
     } catch (failure) {
@@ -433,6 +556,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       return false;
     }
   }, [applyFile, recordNavigation, saveNow]);
+
+  const openJournal = useCallback(async (date: string) => {
+    return await openNote(`journals/${date}.md`);
+  }, [openNote]);
 
   const importFiles = useCallback(async (files: File[]) => {
     const failures: string[] = [];
@@ -566,22 +693,37 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const navigation = useMemo<NavigationContextValue>(() => ({
     workspacePath,
     notes,
-    noteId: note?.id ?? null,
-    canGoBack: navigationHistory.index > 0,
-    canGoForward:
+    noteId: activeTaskViewId ? null : note?.id ?? null,
+    taskViews: [OPEN_TASKS_VIEW, ...customTaskViews],
+    activeTaskView: [OPEN_TASKS_VIEW, ...customTaskViews].find((view) =>
+      view.id === activeTaskViewId
+    ) ?? null,
+    canGoBack: Boolean(activeTaskViewId) || navigationHistory.index > 0,
+    canGoForward: !activeTaskViewId &&
       navigationHistory.index < navigationHistory.entries.length - 1,
-    goBack: () => moveHistory(-1),
+    goBack: () =>
+      moveHistory(-1),
     goForward: () => moveHistory(1),
     openNote,
+    openTaskView,
+    createTaskView,
+    deleteTaskView,
+    openJournal,
     createPage,
     importFiles,
   }), [
     workspacePath,
     notes,
     note?.id,
+    activeTaskViewId,
+    customTaskViews,
     navigationHistory,
     moveHistory,
     openNote,
+    openTaskView,
+    createTaskView,
+    deleteTaskView,
+    openJournal,
     createPage,
     importFiles,
   ]);

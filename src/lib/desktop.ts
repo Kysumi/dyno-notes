@@ -41,8 +41,12 @@ export const desktop: DesktopBindings = {
   notesImport: (files) =>
     call(
       "notesImport",
-      [files.map((file) => ({ name: file.name, bytes: bytesToBase64(file.bytes) }))],
+      [files.map((file) => ({
+        name: file.name,
+        bytes: bytesToBase64(file.bytes),
+      }))],
     ),
   notesBacklinks: (input) => call("notesBacklinks", [input]),
   notesSearch: (query) => call("notesSearch", [query]),
+  tasksList: () => call("tasksList", []),
 };

@@ -48,12 +48,15 @@ Deno.test("workspace creates notes with safe names and collisions", () =>
 Deno.test("creation validates dates, titles, and payload size", () =>
   fixture(async (workspace) => {
     await rejects(
-      () => workspace.create({ kind: "journal", title: "Bad", date: "2026-02-30" }),
-      (error: unknown) => error instanceof AppError && error.name === "InvalidInput",
+      () =>
+        workspace.create({ kind: "journal", title: "Bad", date: "2026-02-30" }),
+      (error: unknown) =>
+        error instanceof AppError && error.name === "InvalidInput",
     );
     await rejects(
       () => workspace.create({ kind: "page", title: "x".repeat(201) }),
-      (error: unknown) => error instanceof AppError && error.name === "InvalidInput",
+      (error: unknown) =>
+        error instanceof AppError && error.name === "InvalidInput",
     );
     const note = await workspace.create({ kind: "page", title: "Large" });
     await rejects(
@@ -63,7 +66,39 @@ Deno.test("creation validates dates, titles, and payload size", () =>
           source: "x".repeat(10 * 1024 * 1024 + 1),
           expectedRevision: note.revision,
         }),
-      (error: unknown) => error instanceof AppError && error.name === "TooLarge",
+      (error: unknown) =>
+        error instanceof AppError && error.name === "TooLarge",
+    );
+  }));
+
+Deno.test("a journal is created only on its first content save", () =>
+  fixture(async (workspace, root) => {
+    const id = "journals/2026-07-23.md";
+    await rejects(
+      () => workspace.read(id),
+      (error: unknown) =>
+        error instanceof AppError && error.name === "NotFound",
+    );
+
+    await workspace.save({
+      id,
+      source: "# Thursday, 23 July 2026\n\nFirst note\n",
+      expectedRevision: "",
+    });
+    equal(
+      await Deno.readTextFile(`${root}/${id}`),
+      "# Thursday, 23 July 2026\n\nFirst note\n",
+    );
+
+    await rejects(
+      () =>
+        workspace.save({
+          id,
+          source: "# Replaced\n",
+          expectedRevision: "",
+        }),
+      (error: unknown) =>
+        error instanceof AppError && error.name === "Conflict",
     );
   }));
 
@@ -163,7 +198,7 @@ Deno.test("index derives block backlinks and deterministic search ranking", () =
   fixture(async (workspace, root) => {
     await Deno.writeTextFile(
       `${root}/pages/orbit.md`,
-      "# Project Orbit\n\nTarget. ^abcdef123456\n",
+      "# Project Orbit\n\n- [ ] Target. ^abcdef123456\n",
     );
     await Deno.writeTextFile(
       `${root}/pages/source.md`,
@@ -192,13 +227,32 @@ See [[pages/orbit#^abcdef123456|target]]. ^111111111111
       "Project Orbit",
     ]);
     equal(workspace.search("Other body")[0].id, "pages/project.md");
+    deepStrictEqual(
+      workspace.tasks().map(({ id, noteId, text, checked, blockId }) => ({
+        id,
+        noteId,
+        text,
+        checked,
+        blockId,
+      })),
+      [{
+        id: "pages/orbit.md#^abcdef123456",
+        noteId: "pages/orbit.md",
+        text: "Target.",
+        checked: false,
+        blockId: "abcdef123456",
+      }],
+    );
   }));
 
 Deno.test("ambiguous titles stay unresolved and deletion removes derived backlinks", () =>
   fixture(async (workspace, root) => {
     await Deno.writeTextFile(`${root}/pages/one.md`, "# Same\n");
     await Deno.writeTextFile(`${root}/pages/two.md`, "# Same\n");
-    await Deno.writeTextFile(`${root}/pages/source.md`, "# Source\n\n[[Same]]\n");
+    await Deno.writeTextFile(
+      `${root}/pages/source.md`,
+      "# Source\n\n[[Same]]\n",
+    );
     await workspace.rebuildIndex();
     equal(workspace.backlinks({ noteId: "pages/one.md" }).length, 0);
     equal(workspace.backlinks({ noteId: "pages/two.md" }).length, 0);

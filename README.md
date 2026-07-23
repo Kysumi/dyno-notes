@@ -16,8 +16,10 @@ format: Markdown underneath, a linked block editor on the surface.
 
 ## Development
 
+Run the app via the command:
+
 ```sh
-deno task desktop:dev
+deno desktop --hmr main.ts
 ```
 
 Run all checks and create a production build with:

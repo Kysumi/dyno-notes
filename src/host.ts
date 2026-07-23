@@ -16,6 +16,7 @@ import type {
   NoteKind,
   NoteSummary,
   SearchResult,
+  TaskRecord,
 } from "./lib/contracts.ts";
 import {
   type IndexedMarkdown,
@@ -134,6 +135,16 @@ export async function writeAll(
     const written = await writer.write(bytes.subarray(offset));
     if (written <= 0) throw new Error("Failed to finish writing the note.");
     offset += written;
+  }
+}
+
+async function writeNew(path: string, bytes: Uint8Array): Promise<void> {
+  const file = await Deno.open(path, { write: true, createNew: true });
+  try {
+    await writeAll(file, bytes);
+    await file.sync();
+  } finally {
+    file.close();
   }
 }
 
@@ -345,6 +356,23 @@ export class Workspace {
     return Array.from(this.#notes.values(), ({ summary }) => summary);
   }
 
+  tasks(): TaskRecord[] {
+    return Array.from(this.#notes.entries()).flatMap(
+      ([noteId, { summary, markdown }]) =>
+        markdown.tasks.map((task) => ({
+          id: task.blockId
+            ? `${noteId}#^${task.blockId}`
+            : `${noteId}:${task.line}`,
+          noteId,
+          noteTitle: summary.title,
+          text: task.text,
+          checked: task.checked,
+          blockId: task.blockId,
+          updatedAt: summary.updatedAt,
+        })),
+    );
+  }
+
   async create(
     input: { kind: NoteKind; title: string; date?: string },
   ): Promise<NoteFile> {
@@ -385,13 +413,7 @@ export class Workspace {
     }
 
     const target = await this.#resolveId(id, false);
-    const file = await Deno.open(target, { write: true, createNew: true });
-    try {
-      await writeAll(file, encoder.encode(`# ${title}\n`));
-      await file.sync();
-    } finally {
-      file.close();
-    }
+    await writeNew(target, encoder.encode(`# ${title}\n`));
     await this.reindex(id);
     return await this.read(id);
   }
@@ -411,6 +433,34 @@ export class Workspace {
       throw new AppError("InvalidInput", "A note revision is required.");
     }
     const source = validateSource(input.source);
+    if (input.expectedRevision === "") {
+      const date = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/u.exec(input.id)?.[1];
+      if (!validDate(date)) {
+        throw new AppError(
+          "InvalidInput",
+          "Only a dated journal can be created on first save.",
+        );
+      }
+      const target = await this.#resolveId(input.id, false);
+      const bytes = encoder.encode(normalizedSource(source, "\n"));
+      try {
+        await writeNew(target, bytes);
+      } catch (error) {
+        if (error instanceof Deno.errors.AlreadyExists) {
+          throw new AppError(
+            "Conflict",
+            "The note changed on disk. Choose which version to keep.",
+          );
+        }
+        throw error;
+      }
+      await this.reindex(input.id);
+      const stat = await Deno.stat(target);
+      return {
+        revision: await hashBytes(bytes),
+        updatedAt: (stat.mtime ?? new Date()).toISOString(),
+      };
+    }
     const target = await this.#resolveId(input.id);
     const currentBytes = await Deno.readFile(target);
     if (await hashBytes(currentBytes) !== input.expectedRevision) {

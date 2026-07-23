@@ -1,4 +1,11 @@
-import { Calendar, FileText, Plus, Settings } from "lucide-react";
+import {
+  Calendar,
+  FileText,
+  ListTodo,
+  Plus,
+  Settings,
+  Trash2,
+} from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { useNavigation } from "@/components/notes-provider.tsx";
@@ -14,13 +21,7 @@ import {
 import { Input } from "@/components/ui/input.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
-
-function localDate(): string {
-  const date = new Date();
-  return `${date.getFullYear()}-${
-    String(date.getMonth() + 1).padStart(2, "0")
-  }-${String(date.getDate()).padStart(2, "0")}`;
-}
+import { dateValue } from "@/lib/dates.ts";
 
 function NewPageDialog() {
   const { createPage } = useNavigation();
@@ -143,8 +144,16 @@ function ImportDialog() {
 }
 
 export function AppSidebar() {
-  const { notes, noteId, openNote } = useNavigation();
-  const journalId = `journals/${localDate()}.md`;
+  const {
+    notes,
+    noteId,
+    taskViews,
+    activeTaskView,
+    openNote,
+    openTaskView,
+    deleteTaskView,
+  } = useNavigation();
+  const journalId = `journals/${dateValue()}.md`;
   const journals = notes
     .filter((summary) => summary.kind === "journal")
     .sort((a, b) => b.id.localeCompare(a.id));
@@ -177,8 +186,40 @@ export function AppSidebar() {
         <NewPageDialog />
       </div>
       <ScrollArea className="min-h-0 flex-1 px-2">
-        <nav className="grid gap-0.5" aria-label="Notes">
+        <nav className="grid gap-0.5" aria-label="Workspace">
           {noteButton(journalId, "Today", "journal")}
+          <p className="px-2 pt-5 pb-1 text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+            Views
+          </p>
+          {taskViews.map((view) => (
+            <div key={view.id} className="flex min-w-0 items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={activeTaskView?.id === view.id
+                  ? "min-w-0 flex-1 justify-start bg-stone-200 text-emerald-950 hover:bg-stone-200"
+                  : "min-w-0 flex-1 justify-start font-normal text-stone-700"}
+                onClick={() =>
+                  void openTaskView(view.id)}
+              >
+                <ListTodo />
+                <span className="truncate">{view.name}</span>
+              </Button>
+              {view.custom
+                ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Delete ${view.name}`}
+                    onClick={() => deleteTaskView(view.id)}
+                  >
+                    <Trash2 />
+                  </Button>
+                )
+                : null}
+            </div>
+          ))}
           <p className="px-2 pt-5 pb-1 text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
             Journals
           </p>

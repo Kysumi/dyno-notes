@@ -77,11 +77,16 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
     (await requireWorkspace()).save(input),
   notesImport: async (files: ImportFilePayload[]) =>
     (await requireWorkspace()).import(
-      files.map((file) => ({ name: file.name, bytes: base64ToBytes(file.bytes) })),
+      files.map((file) => ({
+        name: file.name,
+        bytes: base64ToBytes(file.bytes),
+      })),
     ),
   notesBacklinks: async (input: Parameters<Workspace["backlinks"]>[0]) =>
     (await requireWorkspace()).backlinks(input),
-  notesSearch: async (query: string) => (await requireWorkspace()).search(query),
+  notesSearch: async (query: string) =>
+    (await requireWorkspace()).search(query),
+  tasksList: async () => (await requireWorkspace()).tasks(),
   windowReadyToClose: async () => {
     allowingClose = true;
     watcher?.close();
@@ -100,10 +105,14 @@ function json(data: unknown, init?: ResponseInit): Response {
 
 async function serveApi(request: Request, name: string): Promise<Response> {
   const handler = api[name];
-  if (!handler) return json({ ok: false, message: "Unknown API route." }, { status: 404 });
+  if (!handler) {
+    return json({ ok: false, message: "Unknown API route." }, { status: 404 });
+  }
   try {
     const args = request.method === "POST" ? await request.json() : [];
-    const result = await handler(...(Array.isArray(args) ? args : []) as never[]);
+    const result = await handler(
+      ...(Array.isArray(args) ? args : []) as never[],
+    );
     return json({ ok: true, result });
   } catch (error) {
     console.error(error);
@@ -178,4 +187,3 @@ win.addEventListener("close", (event) => {
     console.error("Failed to execute flush script", error);
   });
 });
-

@@ -33,6 +33,16 @@ export interface SearchResult {
   excerpt: string;
 }
 
+export interface TaskRecord {
+  id: string;
+  noteId: NoteId;
+  noteTitle: string;
+  text: string;
+  checked: boolean;
+  blockId: string | null;
+  updatedAt: string;
+}
+
 export interface DesktopBindings {
   workspaceInfo(): Promise<{ path: string }>;
   notesList(): Promise<NoteSummary[]>;
@@ -55,6 +65,7 @@ export interface DesktopBindings {
     blockId?: string;
   }): Promise<Backlink[]>;
   notesSearch(query: string): Promise<SearchResult[]>;
+  tasksList(): Promise<TaskRecord[]>;
 }
 
 declare global {

@@ -13,12 +13,20 @@ export interface ScannedLink {
   excerpt: string;
 }
 
+export interface ScannedTask {
+  text: string;
+  checked: boolean;
+  blockId: string | null;
+  line: number;
+}
+
 export interface IndexedMarkdown {
   title: string;
   hasTitle: boolean;
   searchText: string;
   blocks: ScannedBlock[];
   links: ScannedLink[];
+  tasks: ScannedTask[];
   wordCount: number;
 }
 
@@ -97,6 +105,7 @@ export function scanMarkdown(source: string): IndexedMarkdown {
   const lines = source.replaceAll("\r\n", "\n").split("\n");
   const blocks: ScannedBlock[] = [];
   const links: ScannedLink[] = [];
+  const tasks: ScannedTask[] = [];
   const searchable: string[] = [];
   let title = "Untitled";
   let hasTitle = false;
@@ -105,7 +114,7 @@ export function scanMarkdown(source: string): IndexedMarkdown {
   let active: { kind: string; lines: string[]; linkIndexes: number[] } | null =
     null;
 
-  for (const line of lines) {
+  for (const [lineIndex, line] of lines.entries()) {
     const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
     if (fenceMatch) {
       const marker = fenceMatch[1][0];
@@ -150,6 +159,17 @@ export function scanMarkdown(source: string): IndexedMarkdown {
       new RegExp(`(?:^|\\s)\\^(${BLOCK_ID})\\s*$`, "i"),
     );
     const blockId = blockMatch?.[1]?.toLowerCase() ?? null;
+    const task = visible.match(/^\s*[-+*]\s+\[([ xX])\]\s+(.+?)\s*$/u);
+    if (task) {
+      // ponytail: table rows use the task's first Markdown line; expand to
+      // continuation paragraphs only when real notes need them.
+      tasks.push({
+        text: plainText(line),
+        checked: task[1].toLocaleLowerCase() === "x",
+        blockId,
+        line: lineIndex + 1,
+      });
+    }
     const kind = /^\s{0,3}#{1,6}\s+/u.test(visible)
       ? "heading"
       : /^\s*(?:[-+*]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)/u.test(visible)
@@ -198,6 +218,7 @@ export function scanMarkdown(source: string): IndexedMarkdown {
     searchText,
     blocks,
     links,
+    tasks,
     wordCount: searchText ? searchText.split(/\s+/u).length : 0,
   };
 }

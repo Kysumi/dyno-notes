@@ -70,3 +70,30 @@ before tomorrow. ^abcdef123456
   ]);
   equal(scanned.blocks[1].excerpt, "Code block");
 });
+
+Deno.test("scanner extracts task rows outside fenced code", () => {
+  const scanned = scanMarkdown(`# Tasks
+
+- [ ] Call supplier ^abcdef123456
+  - [x] Send brief
+
+\`\`\`md
+- [ ] Ignore this
+\`\`\`
+`);
+
+  deepStrictEqual(scanned.tasks, [
+    {
+      text: "Call supplier",
+      checked: false,
+      blockId: "abcdef123456",
+      line: 3,
+    },
+    {
+      text: "Send brief",
+      checked: true,
+      blockId: null,
+      line: 4,
+    },
+  ]);
+});
