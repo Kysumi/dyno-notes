@@ -12,6 +12,9 @@ import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
 
 import { TldrawNodeView } from "@/components/tldraw-node-view.tsx";
+import { type Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 import { WIKI_LINK_SOURCE } from "./markdown-scanner.ts";
 
@@ -206,6 +209,54 @@ export const BlockIdentity = Extension.create({
   },
 });
 
+export const TagHighlight = Extension.create({
+  name: 'tagHighlight',
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('tagHighlight'),
+        state: {
+          init(_, { doc }) {
+            return getTagDecorations(doc);
+          },
+          apply(tr, oldState) {
+            return tr.docChanged ? getTagDecorations(tr.doc) : oldState;
+          },
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state);
+          },
+        },
+      }),
+    ];
+  },
+});
+
+function getTagDecorations(doc: ProseMirrorNode) {
+  const decorations: Decoration[] = [];
+  doc.descendants((node: ProseMirrorNode, pos: number) => {
+    if (node.isText) {
+      const text = node.text || '';
+      const regex = /(?:^|\s)(#[a-zA-Z0-9_-]+)/g;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const matchText = match[1];
+        const start = pos + match.index + (match[0].length - matchText.length);
+        const end = start + matchText.length;
+        
+        decorations.push(
+          Decoration.inline(start, end, {
+            class: 'tag-highlight',
+          })
+        );
+      }
+    }
+  });
+  return DecorationSet.create(doc, decorations);
+}
+
 export function editorExtensions() {
   return [
     StarterKit.configure({
@@ -222,6 +273,7 @@ export function editorExtensions() {
     WikiLink,
     TldrawExtension,
     BlockIdentity,
+    TagHighlight,
     Markdown,
   ];
 }

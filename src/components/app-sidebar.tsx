@@ -19,6 +19,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { Input } from "@/components/ui/input.tsx";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
 import { dateValue } from "@/lib/dates.ts";
@@ -82,11 +87,11 @@ export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
   const {
     notes,
     noteId,
-    taskViews,
-    activeTaskView,
+    pageViews,
+    activePageView,
     openNote,
-    openTaskView,
-    deleteTaskView,
+    openPageView,
+    deletePageView,
   } = useNavigation();
   const journalId = `journals/${dateValue()}.md`;
   const journals = notes
@@ -123,19 +128,34 @@ export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
       <ScrollArea className="min-h-0 flex-1 px-2">
         <nav className="grid gap-0.5" aria-label="Workspace">
           {noteButton(journalId, "Today", "journal")}
-          <p className="px-2 pt-5 pb-1 text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-            Views
-          </p>
-          {taskViews.map((view) => (
+          <div className="flex items-center justify-between px-2 pt-5 pb-1">
+            <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+              Views
+            </p>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent hover:text-foreground">
+                  <Plus className="h-4 w-4" />
+                  <span className="sr-only">How to create a view</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="right" className="text-sm w-64 space-y-2">
+                <p>
+                  To create a new view, use the <strong>global search</strong> to filter pages, then click <strong>Save as view</strong>.
+                </p>
+              </PopoverContent>
+            </Popover>
+          </div>
+          {pageViews.map((view) => (
             <div key={view.id} className="flex min-w-0 items-center gap-0.5">
               <Button
                 variant="ghost"
                 size="sm"
-                className={activeTaskView?.id === view.id
+                className={activePageView?.id === view.id
                   ? "min-w-0 flex-1 justify-start bg-accent text-accent-foreground hover:bg-accent"
                   : "min-w-0 flex-1 justify-start font-normal text-muted-foreground"}
                 onClick={() =>
-                  void openTaskView(view.id)}
+                  void openPageView(view.id)}
               >
                 <ListTodo />
                 <span className="truncate">{view.name}</span>
@@ -147,7 +167,7 @@ export function AppSidebar({ onOpenSettings }: { onOpenSettings(): void }) {
                     size="icon-sm"
                     className="shrink-0 text-muted-foreground hover:text-destructive"
                     aria-label={`Delete ${view.name}`}
-                    onClick={() => deleteTaskView(view.id)}
+                    onClick={() => deletePageView(view.id)}
                   >
                     <Trash2 />
                   </Button>

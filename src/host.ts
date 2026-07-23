@@ -336,6 +336,10 @@ export class Workspace {
       title: indexedTitle(id, markdown),
       updatedAt: (stat.mtime ?? new Date(0)).toISOString(),
       wordCount: markdown.wordCount,
+      tags: markdown.tags,
+      attributes: markdown.attributes,
+      openTasks: markdown.tasks.filter((t) => !t.checked).length,
+      completedTasks: markdown.tasks.filter((t) => t.checked).length,
     };
   }
 

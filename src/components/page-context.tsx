@@ -49,7 +49,7 @@ export function PageContext() {
 
   return (
     <aside className="hidden min-h-0 border-l bg-muted/30 xl:block">
-      <ScrollArea className="h-full">
+      <ScrollArea className="h-full [&_[data-slot=scroll-area-viewport]>div]:!block">
         <div className="space-y-6 p-4">
           <section className="space-y-2">
             <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
@@ -63,8 +63,8 @@ export function PageContext() {
                     variant="ghost"
                     size="sm"
                     className={heading.level > 2
-                      ? "w-full justify-start pl-6 font-normal"
-                      : "w-full justify-start font-normal"}
+                      ? "min-w-0 w-full justify-start pl-6 font-normal"
+                      : "min-w-0 w-full justify-start font-normal"}
                     onClick={() =>
                       document.querySelectorAll<HTMLElement>(
                         ".tiptap h2, .tiptap h3, .tiptap h4, .tiptap h5, .tiptap h6",
@@ -72,7 +72,9 @@ export function PageContext() {
                         ?.scrollIntoView({ block: "center" })}
                   >
                     <ChevronRight />{" "}
-                    <span className="truncate">{heading.title}</span>
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {heading.title}
+                    </span>
                   </Button>
                 ))
                 : (

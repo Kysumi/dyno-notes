@@ -6,7 +6,7 @@ import { NoteEditor } from "@/components/note-editor.tsx";
 import { NotesProvider, useNavigation } from "@/components/notes-provider.tsx";
 import { PageContext } from "@/components/page-context.tsx";
 import { SettingsPage } from "@/components/settings-page.tsx";
-import { TaskView } from "@/components/task-view.tsx";
+import { PageView } from "@/components/page-view.tsx";
 import { TooltipProvider } from "@/components/ui/tooltip.tsx";
 import {
   type AppearanceSettings,
@@ -17,9 +17,9 @@ import {
 const SETTINGS_PATH = "/settings";
 
 function AppContent() {
-  const { activeTaskView } = useNavigation();
-  return activeTaskView
-    ? <TaskView key={activeTaskView.id} view={activeTaskView} />
+  const { activePageView } = useNavigation();
+  return activePageView
+    ? <PageView key={activePageView.id} view={activePageView} />
     : (
       <>
         <NoteEditor />

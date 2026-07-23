@@ -15,6 +15,7 @@ import {
   Braces,
   Code,
   Copy,
+  GripVertical,
   Heading2,
   Heading3,
   Italic,
@@ -27,7 +28,6 @@ import {
   Quote,
   Strikethrough,
   Trash2,
-  GripVertical,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
@@ -655,36 +655,49 @@ export function NoteEditor() {
 
   return (
     <main className="min-w-0 overflow-y-auto bg-background">
-      <div className="mx-auto w-full max-w-3xl px-6 pt-10 pb-24 sm:px-10 sm:pt-14">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Button
-              size="xs"
-              variant={draft.mode === "wysiwyg" ? "secondary" : "ghost"}
-              onClick={() => setMode("wysiwyg")}
-            >
-              WYSIWYG
-            </Button>
-            <Button
-              size="xs"
-              variant={draft.mode === "source" ? "secondary" : "ghost"}
-              onClick={() => setMode("source")}
-            >
-              Source
-            </Button>
+      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
+        <div className="mx-auto w-full max-w-3xl space-y-3 px-6 py-3 sm:px-10">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Button
+                size="xs"
+                variant={draft.mode === "wysiwyg" ? "secondary" : "ghost"}
+                onClick={() => setMode("wysiwyg")}
+              >
+                WYSIWYG
+              </Button>
+              <Button
+                size="xs"
+                variant={draft.mode === "source" ? "secondary" : "ghost"}
+                onClick={() => setMode("source")}
+              >
+                Source
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant={status === "conflict" || status === "error"
+                  ? "destructive"
+                  : "outline"}
+              >
+                {statusLabel[status]}
+              </Badge>
+              <DeleteDialog />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={status === "conflict" || status === "error"
-                ? "destructive"
-                : "outline"}
-            >
-              {statusLabel[status]}
-            </Badge>
-            <DeleteDialog />
-          </div>
+          {draft.mode === "wysiwyg"
+            ? (
+              <Input
+                value={draft.title}
+                onChange={(event) => changeTitle(event.target.value)}
+                aria-label="Note title"
+              />
+            )
+            : null}
         </div>
+      </div>
 
+      <div className="mx-auto w-full max-w-3xl px-6 pt-4 pb-24 sm:px-10">
         {error
           ? (
             <Card className="mb-4 gap-0 border-amber-300 bg-amber-50 py-3 shadow-none">
@@ -696,16 +709,7 @@ export function NoteEditor() {
           : null}
 
         {draft.mode === "wysiwyg"
-          ? (
-            <>
-              <Input
-                value={draft.title}
-                onChange={(event) => changeTitle(event.target.value)}
-                aria-label="Note title"
-              />
-              <WysiwygEditor key={resetKey} />
-            </>
-          )
+          ? <WysiwygEditor key={resetKey} />
           : (
             <div className="space-y-3">
               {draft.unsupportedReasons.length

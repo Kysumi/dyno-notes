@@ -27,6 +27,8 @@ export interface IndexedMarkdown {
   blocks: ScannedBlock[];
   links: ScannedLink[];
   tasks: ScannedTask[];
+  tags: string[];
+  attributes: Record<string, string>;
   wordCount: number;
 }
 
@@ -106,15 +108,34 @@ export function scanMarkdown(source: string): IndexedMarkdown {
   const blocks: ScannedBlock[] = [];
   const links: ScannedLink[] = [];
   const tasks: ScannedTask[] = [];
+  const tags = new Set<string>();
+  const attributes: Record<string, string> = {};
   const searchable: string[] = [];
   let title = "Untitled";
   let hasTitle = false;
   let fence: string | null = null;
+  let inFrontmatter = false;
   let awaitingCodeAnchor = false;
   let active: { kind: string; lines: string[]; linkIndexes: number[] } | null =
     null;
 
   for (const [lineIndex, line] of lines.entries()) {
+    if (lineIndex === 0 && line.trim() === "---") {
+      inFrontmatter = true;
+      continue;
+    }
+    if (inFrontmatter) {
+      if (line.trim() === "---") {
+        inFrontmatter = false;
+        continue;
+      }
+      const fmMatch = line.match(/^([a-zA-Z0-9_-]+):\s*(.+)$/);
+      if (fmMatch) {
+        attributes[fmMatch[1].toLocaleLowerCase()] = fmMatch[2].trim();
+      }
+      continue;
+    }
+
     const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
     if (fenceMatch) {
       const marker = fenceMatch[1][0];
@@ -134,6 +155,11 @@ export function scanMarkdown(source: string): IndexedMarkdown {
     if (!visible.trim()) {
       active = null;
       continue;
+    }
+
+    const attrMatch = visible.match(/^([a-zA-Z0-9_-]+)::\s*(.+)$/);
+    if (attrMatch) {
+      attributes[attrMatch[1].toLocaleLowerCase()] = attrMatch[2].trim();
     }
 
     const standaloneAnchor = visible.match(
@@ -197,6 +223,10 @@ export function scanMarkdown(source: string): IndexedMarkdown {
       });
     }
 
+    for (const match of visible.matchAll(/(?:^|\s)#([a-zA-Z0-9_-]+)/g)) {
+      tags.add(match[1].toLocaleLowerCase());
+    }
+
     if (blockId) {
       const blockExcerpt = excerpt(active.lines.join(" ")) || "Block";
       blocks.push({ id: blockId, excerpt: blockExcerpt });
@@ -219,6 +249,8 @@ export function scanMarkdown(source: string): IndexedMarkdown {
     blocks,
     links,
     tasks,
+    tags: Array.from(tags),
+    attributes,
     wordCount: searchText ? searchText.split(/\s+/u).length : 0,
   };
 }

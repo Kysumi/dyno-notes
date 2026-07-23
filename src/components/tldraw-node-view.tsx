@@ -73,12 +73,9 @@ export function TldrawNodeView({ node, updateAttributes }: NodeViewProps) {
     <NodeViewWrapper>
       <div
         contentEditable={false}
-        className={
-          isFullscreen
-            ? "fixed inset-0 z-50 bg-white"
-            : "w-full rounded-lg overflow-hidden my-4 border"
-        }
-        style={isFullscreen ? {} : { height: "600px", position: "relative" }}
+        className={isFullscreen
+          ? "fixed inset-0 z-50 bg-white"
+          : "relative z-0 my-4 h-[600px] w-full overflow-hidden rounded-lg border"}
       >
         <Tldraw
           store={store}

@@ -29,53 +29,52 @@ import { SaveCoordinator, type SaveStatus } from "@/lib/save-coordinator.ts";
 
 type EditorMode = "wysiwyg" | "source";
 
-export type TaskStatusFilter = "all" | "open" | "done";
-
-export interface TaskViewFilters {
+export interface PageViewFilters {
   query: string;
-  status: TaskStatusFilter;
-  sourceId: NoteId | null;
+  hasOpenTasks: boolean;
+  tag: string | null;
+  attributeKey: string | null;
 }
 
-export interface TaskViewDefinition {
+export interface PageViewDefinition {
   id: string;
   name: string;
-  filters: TaskViewFilters;
+  filters: PageViewFilters;
   custom: boolean;
 }
 
-const OPEN_TASKS_VIEW: TaskViewDefinition = {
+const OPEN_TASKS_VIEW: PageViewDefinition = {
   id: "open-tasks",
   name: "Open tasks",
-  filters: { query: "", status: "open", sourceId: null },
+  filters: { query: "", hasOpenTasks: true, tag: null, attributeKey: null },
   custom: false,
 };
-const TASK_VIEWS_KEY = "dyno.taskViews.v1";
+const PAGE_VIEWS_KEY = "dyno.pageViews.v1";
 
-function storedTaskViews(): TaskViewDefinition[] {
+function storedPageViews(): PageViewDefinition[] {
   if (typeof localStorage === "undefined") return [];
   try {
-    const stored = JSON.parse(localStorage.getItem(TASK_VIEWS_KEY) ?? "[]");
+    const stored = JSON.parse(localStorage.getItem(PAGE_VIEWS_KEY) ?? "[]");
     if (!Array.isArray(stored)) return [];
-    return stored.flatMap((view): TaskViewDefinition[] => {
+    return stored.flatMap((view): PageViewDefinition[] => {
       const filters = view?.filters;
       if (
         typeof view?.id !== "string" || !view.id || view.id.length > 100 ||
         typeof view?.name !== "string" || !view.name.trim() ||
         view.name.length > 80 || typeof filters?.query !== "string" ||
         filters.query.length > 200 ||
-        !["all", "open", "done"].includes(filters?.status) ||
-        !(filters?.sourceId === null ||
-          (typeof filters?.sourceId === "string" &&
-            filters.sourceId.length <= 1000))
+        typeof filters?.hasOpenTasks !== "boolean" ||
+        !(filters?.tag === null || typeof filters?.tag === "string") ||
+        !(filters?.attributeKey === null || typeof filters?.attributeKey === "string")
       ) return [];
       return [{
         id: view.id,
         name: view.name.trim(),
         filters: {
           query: filters.query,
-          status: filters.status,
-          sourceId: filters.sourceId,
+          hasOpenTasks: filters.hasOpenTasks,
+          tag: filters.tag,
+          attributeKey: filters.attributeKey,
         },
         custom: true,
       }];
@@ -131,16 +130,16 @@ interface NavigationContextValue {
   workspacePath: string;
   notes: NoteSummary[];
   noteId: NoteId | null;
-  taskViews: TaskViewDefinition[];
-  activeTaskView: TaskViewDefinition | null;
+  pageViews: PageViewDefinition[];
+  activePageView: PageViewDefinition | null;
   canGoBack: boolean;
   canGoForward: boolean;
   goBack(): Promise<boolean>;
   goForward(): Promise<boolean>;
   openNote(id: NoteId, blockId?: string): Promise<boolean>;
-  openTaskView(id: string): Promise<boolean>;
-  createTaskView(name: string, filters: TaskViewFilters): string;
-  deleteTaskView(id: string): void;
+  openPageView(id: string): Promise<boolean>;
+  createPageView(name: string, filters: PageViewFilters): string;
+  deletePageView(id: string): void;
   openJournal(date: string): Promise<boolean>;
   createPage(title: string): Promise<boolean>;
   deleteNote(id: NoteId): Promise<boolean>;
@@ -244,8 +243,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       index: -1,
     },
   );
-  const [customTaskViews, setCustomTaskViews] = useState(storedTaskViews);
-  const [activeTaskViewId, setActiveTaskViewId] = useState<string | null>(null);
+  const [customPageViews, setCustomPageViews] = useState(storedPageViews);
+  const [activePageViewId, setActivePageViewId] = useState<string | null>(null);
 
   const draftRef = useRef(draft);
   const noteRef = useRef(note);
@@ -272,12 +271,17 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         noteRef.current = updated;
         setNote(updated);
         setNotes((current) => {
+          const scanned = scanMarkdown(snapshot.source);
           const summary: NoteSummary = {
             id: snapshot.id,
             kind: updated.kind,
             title: draftRef.current.title,
             updatedAt: result.updatedAt,
-            wordCount: scanMarkdown(snapshot.source).wordCount,
+            wordCount: scanned.wordCount,
+            tags: scanned.tags,
+            attributes: scanned.attributes,
+            openTasks: scanned.tasks.filter((t) => !t.checked).length,
+            completedTasks: scanned.tasks.filter((t) => t.checked).length,
           };
           return current.some((note) => note.id === snapshot.id)
             ? current.map((note) => note.id === snapshot.id ? summary : note)
@@ -422,11 +426,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(TASK_VIEWS_KEY, JSON.stringify(customTaskViews));
+      localStorage.setItem(PAGE_VIEWS_KEY, JSON.stringify(customPageViews));
     } catch {
       // The views still work for this session if browser storage is unavailable.
     }
-  }, [customTaskViews]);
+  }, [customPageViews]);
 
   const updateDraft = useCallback((changes: Partial<Draft>) => {
     const next = { ...draftRef.current, ...changes };
@@ -449,7 +453,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   const openNote = useCallback(async (id: NoteId, blockId?: string) => {
     if (id === activeIdRef.current) {
-      setActiveTaskViewId(null);
+      setActivePageViewId(null);
       if (blockId) {
         setFocusRequest((current) => ({
           blockId,
@@ -462,7 +466,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     try {
       const file = await readNote(id);
       applyFile(file, blockId);
-      setActiveTaskViewId(null);
+      setActivePageViewId(null);
       recordNavigation(file.id, blockId);
       return true;
     } catch (failure) {
@@ -471,42 +475,42 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     }
   }, [applyFile, recordNavigation, saveNow]);
 
-  const openTaskView = useCallback(async (id: string) => {
+  const openPageView = useCallback(async (id: string) => {
     if (!await saveNow()) return false;
     if (
       id !== OPEN_TASKS_VIEW.id &&
-      !customTaskViews.some((view) => view.id === id)
+      !customPageViews.some((view) => view.id === id)
     ) return false;
-    setActiveTaskViewId(id);
+    setActivePageViewId(id);
     return true;
-  }, [customTaskViews, saveNow]);
+  }, [customPageViews, saveNow]);
 
-  const createTaskView = useCallback(
-    (name: string, filters: TaskViewFilters) => {
+  const createPageView = useCallback(
+    (name: string, filters: PageViewFilters) => {
       const id = crypto.randomUUID();
-      const view: TaskViewDefinition = {
+      const view: PageViewDefinition = {
         id,
         name: name.trim().slice(0, 80),
         filters,
         custom: true,
       };
-      setCustomTaskViews((current) => [...current, view]);
-      setActiveTaskViewId(id);
+      setCustomPageViews((current) => [...current, view]);
+      setActivePageViewId(id);
       return id;
     },
     [],
   );
 
-  const deleteTaskView = useCallback((id: string) => {
-    setCustomTaskViews((current) => current.filter((view) => view.id !== id));
-    setActiveTaskViewId((current) =>
+  const deletePageView = useCallback((id: string) => {
+    setCustomPageViews((current) => current.filter((view) => view.id !== id));
+    setActivePageViewId((current) =>
       current === id ? OPEN_TASKS_VIEW.id : current
     );
   }, []);
 
   const moveHistory = useCallback(async (offset: -1 | 1) => {
-    if (activeTaskViewId && offset === -1) {
-      setActiveTaskViewId(null);
+    if (activePageViewId && offset === -1) {
+      setActivePageViewId(null);
       return true;
     }
     const targetIndex = navigationHistoryRef.current.index + offset;
@@ -522,7 +526,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       setError(message(failure));
       return false;
     }
-  }, [activeTaskViewId, applyFile, saveNow]);
+  }, [activePageViewId, applyFile, saveNow]);
 
   const followWikiLink = useCallback(async (rawTarget: string) => {
     const parsed = parseWikiTarget(rawTarget);
@@ -550,7 +554,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       const file = await desktop.notesCreate({ kind: "page", title });
       setNotes(await desktop.notesList());
       applyFile(file);
-      setActiveTaskViewId(null);
+      setActivePageViewId(null);
       recordNavigation(file.id);
       return true;
     } catch (failure) {
@@ -719,21 +723,21 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const navigation = useMemo<NavigationContextValue>(() => ({
     workspacePath,
     notes,
-    noteId: activeTaskViewId ? null : note?.id ?? null,
-    taskViews: [OPEN_TASKS_VIEW, ...customTaskViews],
-    activeTaskView: [OPEN_TASKS_VIEW, ...customTaskViews].find((view) =>
-      view.id === activeTaskViewId
+    noteId: activePageViewId ? null : note?.id ?? null,
+    pageViews: [OPEN_TASKS_VIEW, ...customPageViews],
+    activePageView: [OPEN_TASKS_VIEW, ...customPageViews].find((view) =>
+      view.id === activePageViewId
     ) ?? null,
-    canGoBack: Boolean(activeTaskViewId) || navigationHistory.index > 0,
-    canGoForward: !activeTaskViewId &&
+    canGoBack: Boolean(activePageViewId) || navigationHistory.index > 0,
+    canGoForward: !activePageViewId &&
       navigationHistory.index < navigationHistory.entries.length - 1,
     goBack: () =>
       moveHistory(-1),
     goForward: () => moveHistory(1),
     openNote,
-    openTaskView,
-    createTaskView,
-    deleteTaskView,
+    openPageView,
+    createPageView,
+    deletePageView,
     openJournal,
     createPage,
     deleteNote,
@@ -742,14 +746,14 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     workspacePath,
     notes,
     note?.id,
-    activeTaskViewId,
-    customTaskViews,
+    activePageViewId,
+    customPageViews,
     navigationHistory,
     moveHistory,
     openNote,
-    openTaskView,
-    createTaskView,
-    deleteTaskView,
+    openPageView,
+    createPageView,
+    deletePageView,
     openJournal,
     createPage,
     deleteNote,

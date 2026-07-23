@@ -8,6 +8,10 @@ export interface NoteSummary {
   title: string;
   updatedAt: string;
   wordCount: number;
+  tags: string[];
+  attributes: Record<string, string>;
+  openTasks: number;
+  completedTasks: number;
 }
 
 export interface NoteFile {
