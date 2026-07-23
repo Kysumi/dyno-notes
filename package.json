@@ -12,6 +12,8 @@
     "@radix-ui/react-slot": "^1.3.0",
     "@tanstack/react-table": "^8.21.3",
     "@tiptap/core": "^3.28.0",
+    "@tiptap/extension-drag-handle": "^3.28.0",
+    "@tiptap/extension-drag-handle-react": "^3.28.0",
     "@tiptap/extension-task-item": "^3.28.0",
     "@tiptap/extension-task-list": "^3.28.0",
     "@tiptap/markdown": "^3.28.0",

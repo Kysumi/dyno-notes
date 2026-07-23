@@ -5,6 +5,7 @@ import {
   useEditor,
   useEditorState,
 } from "@tiptap/react";
+import DragHandle from "@tiptap/extension-drag-handle-react";
 import Suggestion, {
   exitSuggestion,
   type SuggestionProps,
@@ -26,6 +27,7 @@ import {
   Quote,
   Strikethrough,
   Trash2,
+  GripVertical,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
@@ -587,10 +589,17 @@ const WysiwygEditor = memo(function WysiwygEditor() {
       onKeyDownCapture={(event) => {
         if (event.key === "Enter") openWikiLink(event);
       }}
-      className="tiptap-editor"
+      className="tiptap-editor group/editor relative"
     >
       <EditorToolbar editor={editor} />
-      <EditorContent editor={editor} />
+      <div className="relative">
+        <DragHandle editor={editor}>
+          <div className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/50 hover:bg-muted hover:text-foreground cursor-grab active:cursor-grabbing opacity-0 transition-opacity group-hover/editor:opacity-100">
+            <GripVertical className="h-4 w-4" />
+          </div>
+        </DragHandle>
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 });
