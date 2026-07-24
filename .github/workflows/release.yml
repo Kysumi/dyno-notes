@@ -48,6 +48,7 @@ jobs:
       actions: read
       contents: write
     env:
+      GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
       TAG: build-${{ github.run_number }}
     steps:
