@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            output: build/Dyno-Notes-macOS-arm64.dmg
+            artifact: dyno-notes-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            output: build/Dyno-Notes-Windows-x64.msi
+            artifact: dyno-notes-windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.3
+          cache: true
+      - run: deno task build
+      - run: deno desktop -P=desktop --target ${{ matrix.target }} --output "${{ matrix.output }}" main.ts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.output }}
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: build-${{ github.run_number }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish release
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/* --clobber
+          else
+            gh release create "$TAG" artifacts/* \
+              --target "$GITHUB_SHA" \
+              --title "Build $GITHUB_RUN_NUMBER" \
+              --notes "Automated build of $GITHUB_SHA."
+          fi
+      - name: Keep latest 10 automated releases
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.tag_name | startswith("build-")) | .tag_name' |
+            tail -n +11 |
+            while read -r tag; do
+              gh release delete "$tag" --cleanup-tag --yes
+            done
