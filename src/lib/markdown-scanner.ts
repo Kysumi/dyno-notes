@@ -1,4 +1,5 @@
 import type { NoteId } from "./contracts.ts";
+import { parseDeadlineInput } from "./dates.ts";
 
 export interface ScannedBlock {
   id: string;
@@ -18,6 +19,7 @@ export interface ScannedTask {
   checked: boolean;
   blockId: string | null;
   line: number;
+  deadline: string | null;
 }
 
 export interface IndexedMarkdown {
@@ -33,6 +35,15 @@ export interface IndexedMarkdown {
 }
 
 const BLOCK_ID = "[0-9a-f]{12}";
+// Accepts "due:: 2026-07-24" or "due:: 24/07/2026", with an optional
+// "HH:mm" time appended after a space or "T".
+export const DEADLINE_MARKER =
+  /\bdue::\s*(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4})(?:[ T](\d{1,2}:\d{2}))?\b/iu;
+
+function parseTaskDeadline(text: string): string | null {
+  const marker = text.match(DEADLINE_MARKER);
+  return marker ? parseDeadlineInput(marker[1], marker[2]) : null;
+}
 export const WIKI_LINK_SOURCE = String.raw`\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]`;
 const WIKI_LINK = new RegExp(WIKI_LINK_SOURCE, "g");
 
@@ -194,6 +205,7 @@ export function scanMarkdown(source: string): IndexedMarkdown {
         checked: task[1].toLocaleLowerCase() === "x",
         blockId,
         line: lineIndex + 1,
+        deadline: parseTaskDeadline(task[2]),
       });
     }
     const kind = /^\s{0,3}#{1,6}\s+/u.test(visible)

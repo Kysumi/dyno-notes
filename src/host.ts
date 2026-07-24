@@ -472,6 +472,7 @@ export class Workspace {
           checked: task.checked,
           blockId: task.blockId,
           updatedAt: summary.updatedAt,
+          deadline: task.deadline,
         })),
     );
   }

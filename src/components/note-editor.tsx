@@ -5,6 +5,7 @@ import {
   useEditor,
   useEditorState,
 } from "@tiptap/react";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import DragHandle from "@tiptap/extension-drag-handle-react";
 import Suggestion, {
   exitSuggestion,
@@ -13,6 +14,7 @@ import Suggestion, {
 import {
   Bold,
   Braces,
+  CalendarClock,
   Code,
   Copy,
   GripVertical,
@@ -46,6 +48,7 @@ import {
 } from "@/components/ui/alert-dialog.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Calendar } from "@/components/ui/calendar.tsx";
 import {
   Card,
   CardContent,
@@ -62,14 +65,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { Input } from "@/components/ui/input.tsx";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import type { NoteSummary } from "@/lib/contracts.ts";
+import { dateValue, localDate, parseDeadlineInput } from "@/lib/dates.ts";
 import {
   editorExtensions,
   ensureCurrentBlockId,
 } from "@/lib/editor-extensions.ts";
 import {
+  DEADLINE_MARKER,
   normalizeSearchText,
   noteTarget,
   parseWikiTarget,
@@ -268,6 +278,161 @@ function wikiLinkSuggestion(getNotes: () => NoteSummary[]) {
   });
 }
 
+function currentTaskItem(
+  editor: Editor,
+): { pos: number; node: ProseMirrorNode } | null {
+  const { $from } = editor.state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.name === "taskItem") {
+      return { pos: $from.before(depth), node: $from.node(depth) };
+    }
+  }
+  return null;
+}
+
+function taskItemParagraph(node: ProseMirrorNode): ProseMirrorNode | null {
+  const paragraph = node.firstChild;
+  return paragraph?.type.name === "paragraph" ? paragraph : null;
+}
+
+function taskItemDeadline(node: ProseMirrorNode): string | null {
+  const paragraph = taskItemParagraph(node);
+  if (!paragraph) return null;
+  const match = paragraph.textContent.match(DEADLINE_MARKER);
+  return match ? parseDeadlineInput(match[1], match[2]) : null;
+}
+
+function deadlineMarkerRange(
+  paragraph: ProseMirrorNode,
+  contentStart: number,
+): { from: number; to: number } | null {
+  let range: { from: number; to: number } | null = null;
+  paragraph.forEach((child, offset) => {
+    if (range || !child.isText || !child.text) return;
+    const match = child.text.match(DEADLINE_MARKER);
+    if (match?.index !== undefined) {
+      range = {
+        from: contentStart + offset + match.index,
+        to: contentStart + offset + match.index + match[0].length,
+      };
+    }
+  });
+  return range;
+}
+
+function setTaskDeadline(editor: Editor, value: string | null): void {
+  const current = currentTaskItem(editor);
+  const paragraph = current && taskItemParagraph(current.node);
+  if (!current || !paragraph) return;
+  const contentStart = current.pos + 2;
+  const range = deadlineMarkerRange(paragraph, contentStart);
+  const text = value ? `due:: ${value}` : null;
+  const tr = editor.state.tr;
+  if (range) {
+    if (text) {
+      tr.insertText(text, range.from, range.to);
+    } else {
+      const leadingSpace =
+        range.from > contentStart &&
+        tr.doc.textBetween(range.from - 1, range.from) === " ";
+      tr.delete(leadingSpace ? range.from - 1 : range.from, range.to);
+    }
+  } else if (text) {
+    tr.insertText(
+      paragraph.content.size ? ` ${text}` : text,
+      contentStart + paragraph.content.size,
+    );
+  } else {
+    return;
+  }
+  editor.view.dispatch(tr);
+  editor.commands.focus();
+}
+
+function DeadlinePicker({
+  editor,
+  reportError,
+}: {
+  editor: Editor;
+  reportError: (message: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [time, setTime] = useState("");
+
+  const apply = (nextDate: Date | undefined, nextTime: string) => {
+    setTaskDeadline(
+      editor,
+      nextDate
+        ? `${dateValue(nextDate)}${nextTime ? `T${nextTime}` : ""}`
+        : null,
+    );
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          const current = currentTaskItem(editor);
+          if (!current) {
+            reportError("Place the cursor in a task to set its deadline.");
+            return;
+          }
+          reportError(null);
+          const [datePart, timePart] = (
+            taskItemDeadline(current.node) ?? ""
+          ).split("T");
+          setDate(datePart ? localDate(datePart) : undefined);
+          setTime(timePart ?? "");
+        }
+        setOpen(next);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <ToolbarButton label="Set deadline" onClick={() => undefined}>
+          <CalendarClock />
+        </ToolbarButton>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          defaultMonth={date}
+          selected={date}
+          onSelect={(next) => {
+            setDate(next);
+            apply(next, time);
+          }}
+        />
+        <div className="flex items-center gap-2 border-t p-3">
+          <Input
+            type="time"
+            value={time}
+            onChange={(event) => {
+              setTime(event.target.value);
+              apply(date, event.target.value);
+            }}
+            aria-label="Deadline time"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setDate(undefined);
+              setTime("");
+              setTaskDeadline(editor, null);
+              setOpen(false);
+            }}
+          >
+            Clear
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function EditorToolbar({ editor }: { editor: Editor }) {
   const { draft, noteId, reportError } = useEditorRuntime();
   const imageInput = useRef<HTMLInputElement>(null);
@@ -416,6 +581,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       >
         <ListChecks />
       </ToolbarButton>
+      <DeadlinePicker editor={editor} reportError={reportError} />
       <ToolbarButton
         label="Blockquote"
         active={state.quote}

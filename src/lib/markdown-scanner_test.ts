@@ -90,12 +90,35 @@ Deno.test("scanner extracts task rows outside fenced code", () => {
       checked: false,
       blockId: "abcdef123456",
       line: 3,
+      deadline: null,
     },
     {
       text: "Send brief",
       checked: true,
       blockId: null,
       line: 4,
+      deadline: null,
     },
   ]);
+});
+
+Deno.test("scanner extracts a task deadline from a due:: marker", () => {
+  const scanned = scanMarkdown(`- [ ] Renew passport due:: 2026-08-01\n`);
+
+  equal(scanned.tasks[0].text, "Renew passport due:: 2026-08-01");
+  equal(scanned.tasks[0].deadline, "2026-08-01");
+});
+
+Deno.test("scanner accepts a DD/MM/YYYY deadline with a time", () => {
+  const scanned = scanMarkdown(
+    `- [ ] Renew passport due:: 24/07/2026 14:30\n`,
+  );
+
+  equal(scanned.tasks[0].deadline, "2026-07-24T14:30");
+});
+
+Deno.test("scanner drops a deadline that is not a real calendar date", () => {
+  const scanned = scanMarkdown(`- [ ] Bad date due:: 2026-02-30\n`);
+
+  equal(scanned.tasks[0].deadline, null);
 });

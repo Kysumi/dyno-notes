@@ -52,6 +52,7 @@ export interface TaskRecord {
   checked: boolean;
   blockId: string | null;
   updatedAt: string;
+  deadline: string | null;
 }
 
 export interface DesktopBindings {

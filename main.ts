@@ -5,9 +5,11 @@ import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { AppError, Workspace } from "./src/host.ts";
 import { rejectInvalidApiRequest } from "./src/lib/api-request.ts";
 import { base64ToBytes } from "./src/lib/base64.ts";
+import { deadlineTimestamp, formatDeadline } from "./src/lib/dates.ts";
 
 interface DesktopWindow extends EventTarget {
   close(): void;
+  focus(): void;
   executeJs(script: string): Promise<unknown>;
 }
 
@@ -144,13 +146,49 @@ async function serveApi(request: Request, name: string): Promise<Response> {
   }
 }
 
+// ponytail: a 24h lookahead window, checked on save and every 30 minutes;
+// add snooze/config knobs when someone actually wants them.
+const DEADLINE_NOTICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const notifiedTasks = new Set<string>();
+
+async function ensureNotificationPermission(): Promise<boolean> {
+  if (Notification.permission === "denied") return false;
+  if (Notification.permission === "granted") return true;
+  return (await Notification.requestPermission()) === "granted";
+}
+
+async function checkTaskDeadlines(): Promise<void> {
+  const workspace = await workspacePromise;
+  if (!workspace || !(await ensureNotificationPermission())) return;
+  const now = Date.now();
+  for (const task of workspace.tasks()) {
+    if (task.checked || !task.deadline || notifiedTasks.has(task.id)) continue;
+    const due = deadlineTimestamp(task.deadline);
+    if (due - now > DEADLINE_NOTICE_WINDOW_MS) continue;
+    notifiedTasks.add(task.id);
+    const notification = new Notification(
+      due < now ? "Task overdue" : "Task due soon",
+      {
+        body: `${task.text} — ${task.noteTitle} (${formatDeadline(task.deadline)})`,
+        tag: task.id,
+      },
+    );
+    notification.addEventListener("click", () => win.focus());
+  }
+}
+
 let watcher: Deno.FsWatcher | undefined;
 void workspacePromise.then((workspace) => {
   watcher = workspace?.watch(
-    () => void win.executeJs(CHANGE_SCRIPT).catch(() => undefined),
+    () => {
+      void win.executeJs(CHANGE_SCRIPT).catch(() => undefined);
+      void checkTaskDeadlines();
+    },
     () => void win.executeJs(WATCHER_ERROR_SCRIPT).catch(() => undefined),
   );
+  void checkTaskDeadlines();
 });
+setInterval(() => void checkTaskDeadlines(), 30 * 60 * 1000);
 
 async function serve(request: Request): Promise<Response> {
   const dist = resolve(Deno.cwd(), "dist");

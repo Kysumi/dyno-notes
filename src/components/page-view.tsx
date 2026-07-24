@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/table.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import type { NoteSummary, TaskRecord } from "@/lib/contracts.ts";
+import { deadlineTimestamp, formatDeadline } from "@/lib/dates.ts";
 import { desktop } from "@/lib/desktop.ts";
 
 const dateFormatter = new Intl.DateTimeFormat("en-NZ", { dateStyle: "medium" });
@@ -206,6 +207,32 @@ function taskColumns(
           {row.original.checked ? "Completed" : "Open"}
         </span>
       ),
+    },
+    {
+      id: "deadline",
+      accessorFn: (row) =>
+        row.deadline ? deadlineTimestamp(row.deadline) : Infinity,
+      header: ({ column }) => (
+        <SortableHeader
+          column={column as unknown as Column<TaskRecord, unknown>}
+        >
+          Deadline
+        </SortableHeader>
+      ),
+      cell: ({ row }) => {
+        const deadline = row.original.deadline;
+        if (!deadline) return <span className="text-muted-foreground">-</span>;
+        const overdue =
+          !row.original.checked && deadlineTimestamp(deadline) < Date.now();
+        return (
+          <Badge
+            variant={overdue ? "destructive" : "outline"}
+            className="text-[10px]"
+          >
+            {formatDeadline(deadline)}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "updatedAt",
