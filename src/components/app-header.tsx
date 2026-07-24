@@ -1,11 +1,15 @@
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   FilePlus2,
   FileText,
+  ListTodo,
   Search,
+  Settings,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -57,8 +61,17 @@ function focusEditor(): void {
   );
 }
 
-function CommandPalette({ compact = false }: { compact?: boolean }) {
-  const { notes, openNote, createPage } = useNavigation();
+function CommandPalette({
+  compact = false,
+  onOpenHelp,
+  onOpenSettings,
+}: {
+  compact?: boolean;
+  onOpenHelp(): Promise<boolean>;
+  onOpenSettings(): Promise<boolean>;
+}) {
+  const { notes, openNote, openJournal, openPageView, createPage } =
+    useNavigation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -121,13 +134,13 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
             ? "h-8 w-8 justify-center bg-background/70 text-muted-foreground shadow-xs [-webkit-app-region:no-drag]"
             : "h-8 w-8 justify-center bg-background/70 text-xs font-normal text-muted-foreground shadow-xs sm:w-full sm:justify-between [-webkit-app-region:no-drag]"
         }
-        aria-label="Search or create a page"
+        aria-label="Open command palette"
         onClick={() => setOpen(true)}
       >
         <span className="flex items-center gap-2">
           <Search />
           <span className={compact ? "sr-only" : "hidden sm:inline"}>
-            Search or create a page
+            Search pages or run a command
           </span>
         </span>
         {compact ? null : (
@@ -143,18 +156,70 @@ function CommandPalette({ compact = false }: { compact?: boolean }) {
           setOpen(nextOpen);
           if (!nextOpen) setQuery("");
         }}
-        title="Search or create a page"
-        description="Search your notes or create a page from the entered title."
+        title="Command palette"
+        description="Navigate Dyno Notes, search your notes, or create a page from the entered title."
         className="border-primary/20 shadow-2xl sm:max-w-xl"
       >
         <CommandInput
           value={query}
           onValueChange={setQuery}
-          placeholder="Search pages or type a new title…"
+          placeholder="Search pages, run a command, or type a title…"
           maxLength={200}
         />
         <CommandList className="max-h-[min(24rem,60vh)]">
-          <CommandEmpty>No pages found.</CommandEmpty>
+          <CommandEmpty>No pages or commands found.</CommandEmpty>
+          <CommandGroup heading="Navigate">
+            <CommandItem
+              value="Today"
+              keywords={["journal", "daily note"]}
+              onSelect={() => {
+                void openJournal(dateValue()).then((opened) => {
+                  if (!opened) return;
+                  close();
+                  focusEditor();
+                });
+              }}
+            >
+              <CalendarDays />
+              Today
+            </CommandItem>
+            <CommandItem
+              value="Open tasks"
+              keywords={["todo", "view"]}
+              onSelect={() => {
+                void openPageView("open-tasks").then((opened) => {
+                  if (opened) close();
+                });
+              }}
+            >
+              <ListTodo />
+              Open tasks
+            </CommandItem>
+            <CommandItem
+              value="Settings"
+              keywords={["preferences", "appearance"]}
+              onSelect={() => {
+                void onOpenSettings().then((opened) => {
+                  if (opened) close();
+                });
+              }}
+            >
+              <Settings />
+              Settings
+            </CommandItem>
+            <CommandItem
+              value="Help"
+              keywords={["guide", "documentation"]}
+              onSelect={() => {
+                void onOpenHelp().then((opened) => {
+                  if (opened) close();
+                });
+              }}
+            >
+              <CircleHelp />
+              Help
+            </CommandItem>
+          </CommandGroup>
           {pages.length ? (
             <CommandGroup heading={title ? "Search results" : "Pages"}>
               {pages.map((page) => (
@@ -303,7 +368,13 @@ function JournalCalendar({ date }: { date: string }) {
   );
 }
 
-export function AppHeader() {
+export function AppHeader({
+  onOpenHelp,
+  onOpenSettings,
+}: {
+  onOpenHelp(): Promise<boolean>;
+  onOpenSettings(): Promise<boolean>;
+}) {
   const { canGoBack, canGoForward, goBack, goForward, noteId, workspacePath } =
     useNavigation();
   const journalDate = journalDateFromId(noteId ?? "");
@@ -358,12 +429,19 @@ export function AppHeader() {
       {journalDate ? (
         <JournalCalendar date={journalDate} />
       ) : (
-        <CommandPalette />
+        <CommandPalette
+          onOpenHelp={onOpenHelp}
+          onOpenSettings={onOpenSettings}
+        />
       )}
 
       {journalDate ? (
         <div className="flex items-center justify-end gap-2 [-webkit-app-region:no-drag]">
-          <CommandPalette compact />
+          <CommandPalette
+            compact
+            onOpenHelp={onOpenHelp}
+            onOpenSettings={onOpenSettings}
+          />
         </div>
       ) : (
         <p

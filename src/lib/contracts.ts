@@ -23,6 +23,13 @@ export interface NoteFile {
   eol: "\n" | "\r\n";
 }
 
+export interface TrashEntry {
+  id: string;
+  originalId: NoteId;
+  title: string;
+  deletedAt: string;
+}
+
 export interface Backlink {
   sourceId: NoteId;
   sourceTitle: string;
@@ -61,7 +68,10 @@ export interface DesktopBindings {
     source: string;
     expectedRevision: string;
   }): Promise<{ revision: string; updatedAt: string }>;
-  notesDelete(id: NoteId): Promise<void>;
+  notesTrash(id: NoteId): Promise<TrashEntry>;
+  trashList(): Promise<TrashEntry[]>;
+  trashRestore(id: string): Promise<NoteFile>;
+  trashDelete(id: string): Promise<void>;
   notesImport(
     files: Array<{ name: string; bytes: Uint8Array }>,
   ): Promise<NoteSummary[]>;

@@ -11,6 +11,7 @@ interface SaveResult {
 }
 
 interface SaveCoordinatorOptions {
+  prepare?: () => void;
   snapshot: () => SaveSnapshot;
   save: (
     input: SaveSnapshot & { expectedRevision: string },
@@ -66,6 +67,13 @@ export class SaveCoordinator {
 
   async flush(): Promise<boolean> {
     if (this.#blocked) return false;
+    try {
+      this.#options.prepare?.();
+    } catch (error) {
+      this.#options.status("error");
+      await this.#options.failed(error, this.#options.snapshot());
+      return false;
+    }
     if (this.#active) {
       await this.#active;
       return this.#dirty ? await this.flush() : true;

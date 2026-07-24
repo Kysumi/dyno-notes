@@ -2,6 +2,7 @@ import { deepStrictEqual, strictEqual } from "node:assert/strict";
 
 import {
   pushNavigationHistory,
+  removeNavigationHistory,
   updatePageViewFilters,
 } from "./notes-provider.tsx";
 
@@ -19,6 +20,27 @@ Deno.test("navigation history ignores duplicates and drops the forward branch", 
     pushNavigationHistory({ ...second, index: 0 }, { id: "pages/three.md" }),
     {
       entries: [{ id: "pages/one.md" }, { id: "pages/three.md" }],
+      index: 1,
+    },
+  );
+});
+
+Deno.test("removing a note from history records its fallback", () => {
+  deepStrictEqual(
+    removeNavigationHistory(
+      {
+        entries: [
+          { id: "pages/one.md" },
+          { id: "pages/deleted.md" },
+          { id: "pages/future.md" },
+        ],
+        index: 1,
+      },
+      "pages/deleted.md",
+      { id: "pages/fallback.md" },
+    ),
+    {
+      entries: [{ id: "pages/one.md" }, { id: "pages/fallback.md" }],
       index: 1,
     },
   );

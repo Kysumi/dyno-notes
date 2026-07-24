@@ -7,7 +7,6 @@ import {
   readAppearanceSettings,
 } from "./lib/appearance.ts";
 import "./index.css";
-import "tldraw/tldraw.css";
 
 const appearance = readAppearanceSettings();
 applyAppearanceSettings(appearance);

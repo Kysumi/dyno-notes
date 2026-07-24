@@ -3,6 +3,7 @@
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { AppError, Workspace } from "./src/host.ts";
+import { rejectInvalidApiRequest } from "./src/lib/api-request.ts";
 import { base64ToBytes } from "./src/lib/base64.ts";
 
 interface DesktopWindow extends EventTarget {
@@ -23,10 +24,12 @@ const WATCHER_ERROR_SCRIPT =
 const FLUSH_SCRIPT = `
   (async () => {
     try {
-      if (globalThis.__dynoFlush) {
-        await globalThis.__dynoFlush();
-      }
-      await fetch('/api/windowReadyToClose', { method: 'POST', body: '[]' });
+      if (globalThis.__dynoFlush && !await globalThis.__dynoFlush()) return;
+      await fetch('/api/windowReadyToClose', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '[]',
+      });
     } catch (error) {
       console.error("Could not flush the active note", error);
     }
@@ -80,7 +83,10 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
     (await requireWorkspace()).create(input),
   notesSave: async (input: Parameters<Workspace["save"]>[0]) =>
     (await requireWorkspace()).save(input),
-  notesDelete: async (id: string) => (await requireWorkspace()).delete(id),
+  notesTrash: async (id: string) => (await requireWorkspace()).trash(id),
+  trashList: async () => (await requireWorkspace()).listTrash(),
+  trashRestore: async (id: string) => (await requireWorkspace()).restore(id),
+  trashDelete: async (id: string) => (await requireWorkspace()).deleteTrash(id),
   notesImport: async (files: ImportFilePayload[]) =>
     (await requireWorkspace()).import(
       files.map((file) => ({
@@ -110,12 +116,15 @@ function json(data: unknown, init?: ResponseInit): Response {
 }
 
 async function serveApi(request: Request, name: string): Promise<Response> {
+  const rejection = rejectInvalidApiRequest(request);
+  if (rejection) return rejection;
+
   const handler = api[name];
   if (!handler) {
     return json({ ok: false, message: "Unknown API route." }, { status: 404 });
   }
   try {
-    const args = request.method === "POST" ? await request.json() : [];
+    const args = await request.json();
     const result = await handler(
       ...((Array.isArray(args) ? args : []) as never[]),
     );
@@ -187,7 +196,7 @@ async function serve(request: Request): Promise<Response> {
   }
 }
 
-const server = Deno.serve(serve);
+const server = Deno.serve({ hostname: "127.0.0.1", port: 8000 }, serve);
 let allowingClose = false;
 win.addEventListener("close", (event) => {
   if (allowingClose) return;

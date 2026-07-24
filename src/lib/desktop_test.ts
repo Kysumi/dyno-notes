@@ -50,6 +50,28 @@ Deno.test("desktop forwards call arguments as a JSON array body", () =>
     },
   ));
 
+Deno.test("desktop exposes trash routes", async () => {
+  const calls: Array<[string, unknown]> = [];
+  await withFetch(
+    (input, init) => {
+      calls.push([String(input), JSON.parse(String(init?.body))]);
+      return json({ ok: true, result: [] });
+    },
+    async () => {
+      await desktop.notesTrash("pages/a.md");
+      await desktop.trashList();
+      await desktop.trashRestore("trash-id");
+      await desktop.trashDelete("trash-id");
+      deepStrictEqual(calls, [
+        ["/api/notesTrash", ["pages/a.md"]],
+        ["/api/trashList", []],
+        ["/api/trashRestore", ["trash-id"]],
+        ["/api/trashDelete", ["trash-id"]],
+      ]);
+    },
+  );
+});
+
 Deno.test("desktop raises a named error when the API reports failure", () =>
   withFetch(
     () => json({ ok: false, name: "NotFound", message: "gone" }, 400),

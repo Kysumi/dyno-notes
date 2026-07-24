@@ -148,7 +148,9 @@ function columns(openNote: (id: string) => void): ColumnDef<NoteSummary>[] {
   ];
 }
 
-function taskColumns(openNote: (id: string) => void): ColumnDef<TaskRecord>[] {
+function taskColumns(
+  openNote: (id: string, blockId?: string) => void,
+): ColumnDef<TaskRecord>[] {
   return [
     {
       accessorKey: "noteTitle",
@@ -163,7 +165,9 @@ function taskColumns(openNote: (id: string) => void): ColumnDef<TaskRecord>[] {
         <Button
           variant="link"
           className="h-auto max-w-[20rem] justify-start whitespace-normal p-0 text-left font-medium text-foreground"
-          onClick={() => openNote(row.original.noteId)}
+          onClick={() =>
+            openNote(row.original.noteId, row.original.blockId ?? undefined)
+          }
         >
           {row.original.noteTitle}
         </Button>
@@ -173,13 +177,19 @@ function taskColumns(openNote: (id: string) => void): ColumnDef<TaskRecord>[] {
       accessorKey: "text",
       header: "Task",
       cell: ({ row }) => (
-        <span
+        <Button
+          variant="link"
           className={
-            row.original.checked ? "line-through text-muted-foreground" : ""
+            row.original.checked
+              ? "h-auto justify-start whitespace-normal p-0 text-left font-normal text-muted-foreground line-through"
+              : "h-auto justify-start whitespace-normal p-0 text-left font-normal text-foreground"
+          }
+          onClick={() =>
+            openNote(row.original.noteId, row.original.blockId ?? undefined)
           }
         >
           {row.original.text}
-        </span>
+        </Button>
       ),
     },
     {
@@ -213,6 +223,21 @@ function taskColumns(openNote: (id: string) => void): ColumnDef<TaskRecord>[] {
       ),
     },
   ];
+}
+
+export function viewSummary(
+  showAs: PageViewFilters["showAs"],
+  filteredNoteCount: number,
+  totalNoteCount: number,
+  tasks: Pick<TaskRecord, "noteId">[],
+): string {
+  if (showAs === "tasks") {
+    const pageCount = new Set(tasks.map((task) => task.noteId)).size;
+    return `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"} across ${pageCount} ${pageCount === 1 ? "page" : "pages"}.`;
+  }
+  return `${filteredNoteCount} of ${totalNoteCount} ${
+    totalNoteCount === 1 ? "page" : "pages"
+  }.`;
 }
 
 function queryLabel(filters: PageViewFilters): string {
@@ -302,10 +327,29 @@ export function PageView({ view }: { view: PageViewDefinition }) {
     { id: "updatedAt", desc: true },
   ]);
   const [allTasks, setAllTasks] = useState<TaskRecord[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [tasksError, setTasksError] = useState(false);
+  const [taskRetry, setTaskRetry] = useState(0);
 
   useEffect(() => {
-    desktop.tasksList().then(setAllTasks).catch(console.error);
-  }, []);
+    let cancelled = false;
+    setTasksLoading(true);
+    setTasksError(false);
+    void desktop
+      .tasksList()
+      .then((tasks) => {
+        if (!cancelled) setAllTasks(tasks);
+      })
+      .catch(() => {
+        if (!cancelled) setTasksError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setTasksLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notes, taskRetry]);
 
   const filteredNotes = useMemo(() => {
     return notes.filter((note) => {
@@ -343,7 +387,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
   const activeColumns = useMemo(
     () =>
       filters.showAs === "tasks"
-        ? taskColumns((id) => void openNote(id))
+        ? taskColumns((id, blockId) => void openNote(id, blockId))
         : columns((id) => void openNote(id)),
     [openNote, filters.showAs],
   );
@@ -402,7 +446,12 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               {view.name}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {rows.length} of {notes.length} pages
+              {viewSummary(
+                filters.showAs,
+                filteredNotes.length,
+                notes.length,
+                filteredTasks,
+              )}
             </p>
           </div>
           {view.custom ? null : <SaveViewDialog filters={filters} />}
@@ -510,6 +559,22 @@ export function PageView({ view }: { view: PageViewDefinition }) {
           </ToggleGroupItem>
         </ToggleGroup>
 
+        {filters.showAs === "tasks" && tasksError ? (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm"
+          >
+            <span>Tasks could not be loaded.</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTaskRetry((value) => value + 1)}
+            >
+              <RotateCcw /> Retry
+            </Button>
+          </div>
+        ) : null}
+
         <div className="overflow-hidden rounded-lg border bg-background shadow-xs">
           <Table>
             <TableHeader className="bg-muted/60">
@@ -563,7 +628,13 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                     colSpan={activeColumns.length}
                     className="h-32 text-center text-muted-foreground"
                   >
-                    No pages match this view.
+                    {filters.showAs === "tasks"
+                      ? tasksError
+                        ? "Tasks unavailable."
+                        : tasksLoading
+                          ? "Loading tasks…"
+                          : "No tasks match this view."
+                      : "No pages match this view."}
                   </TableCell>
                 </TableRow>
               )}

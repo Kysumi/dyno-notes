@@ -163,7 +163,7 @@ export const TldrawExtension = Node.create({
         ({ commands }) =>
           commands.insertContent({
             type: this.name,
-            attrs: { source: "{}" },
+            attrs: { source: null },
           }),
     };
   },

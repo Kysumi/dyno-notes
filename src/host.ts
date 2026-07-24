@@ -17,6 +17,7 @@ import type {
   NoteSummary,
   SearchResult,
   TaskRecord,
+  TrashEntry,
 } from "./lib/contracts.ts";
 import {
   type IndexedMarkdown,
@@ -28,6 +29,9 @@ import {
 const MAX_BYTES = 10 * 1024 * 1024;
 const TEMP_PREFIX = ".dyno-";
 const TEMP_SUFFIX = ".tmp";
+const TRASH_DIRECTORY = ".trash";
+const TRASH_ID =
+  /^(\d{13})-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const encoder = new TextEncoder();
 
@@ -263,6 +267,91 @@ export class Workspace {
     ) {
       throw new AppError("InvalidNoteId", "The note ID is invalid.");
     }
+  }
+
+  #validateTrashId(id: unknown): asserts id is string {
+    if (typeof id !== "string" || !TRASH_ID.test(id)) {
+      throw new AppError("InvalidNoteId", "The trash ID is invalid.");
+    }
+  }
+
+  async #trashRoot(create = false): Promise<string | null> {
+    const path = join(this.path, TRASH_DIRECTORY);
+    if (create)
+      await Deno.mkdir(path).catch((error) => {
+        if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+      });
+    try {
+      const info = await Deno.lstat(path);
+      if (info.isSymlink || !info.isDirectory) {
+        throw new AppError(
+          "InvalidNoteId",
+          "The workspace trash directory is not safe to use.",
+        );
+      }
+      const real = await Deno.realPath(path);
+      ensureContained(this.#rootReal, real);
+      return real;
+    } catch (error) {
+      if (!create && isMissing(error)) return null;
+      throw error;
+    }
+  }
+
+  async #trashFile(
+    entryPath: string,
+    prefix = "",
+  ): Promise<{ id: NoteId; path: string }> {
+    let found: { id: NoteId; path: string } | undefined;
+    for await (const entry of Deno.readDir(entryPath)) {
+      const id = prefix ? `${prefix}/${entry.name}` : entry.name;
+      const path = join(entryPath, entry.name);
+      if (entry.isSymlink) {
+        throw new AppError("InvalidNoteId", "Trash symlinks are not allowed.");
+      }
+      if (entry.isDirectory) {
+        const nested = await this.#trashFile(path, id);
+        if (found) {
+          throw new AppError("InvalidNoteId", "The trash entry is invalid.");
+        }
+        found = nested;
+      } else if (entry.isFile && isManagedId(id)) {
+        if (found) {
+          throw new AppError("InvalidNoteId", "The trash entry is invalid.");
+        }
+        found = { id, path };
+      } else {
+        throw new AppError("InvalidNoteId", "The trash entry is invalid.");
+      }
+    }
+    if (!found) {
+      throw new AppError("InvalidNoteId", "The trash entry is invalid.");
+    }
+    return found;
+  }
+
+  async #resolveTrash(id: unknown): Promise<{
+    entryPath: string;
+    file: { id: NoteId; path: string };
+  }> {
+    this.#validateTrashId(id);
+    const root = await this.#trashRoot();
+    if (!root)
+      throw new AppError("NotFound", "The trash entry no longer exists.");
+    const entryPath = resolve(root, id);
+    ensureContained(root, entryPath);
+    try {
+      const info = await Deno.lstat(entryPath);
+      if (info.isSymlink || !info.isDirectory) {
+        throw new AppError("InvalidNoteId", "The trash entry is invalid.");
+      }
+    } catch (error) {
+      if (isMissing(error)) {
+        throw new AppError("NotFound", "The trash entry no longer exists.");
+      }
+      throw error;
+    }
+    return { entryPath, file: await this.#trashFile(entryPath) };
   }
 
   async #resolveId(id: unknown, mustExist = true): Promise<string> {
@@ -641,17 +730,111 @@ export class Workspace {
     return matches.length === 1 ? matches[0] : null;
   }
 
-  async delete(id: NoteId): Promise<void> {
+  trash(id: NoteId): Promise<TrashEntry> {
+    const operation = this.#writeQueue.then(() => this.#trash(id));
+    this.#writeQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  async #trash(id: NoteId): Promise<TrashEntry> {
+    const sourcePath = await this.#resolveId(id);
+    const source = strictText(await Deno.readFile(sourcePath));
+    const epoch = Date.now();
+    const trashId = `${epoch}-${crypto.randomUUID()}`;
+    const root = (await this.#trashRoot(true))!;
+    const entryPath = join(root, trashId);
+    const trashPath = join(entryPath, id);
+    await Deno.mkdir(entryPath);
+    await Deno.mkdir(dirname(trashPath), { recursive: true });
     try {
-      const target = await this.#resolveId(id);
-      await Deno.remove(target);
+      await Deno.rename(sourcePath, trashPath);
+    } catch (error) {
+      await Deno.remove(entryPath, { recursive: true }).catch(() => undefined);
+      throw error;
+    }
+    this.#notes.delete(id);
+    this.#rebuildBacklinks();
+    return {
+      id: trashId,
+      originalId: id,
+      title: indexedTitle(id, scanMarkdown(source)),
+      deletedAt: new Date(epoch).toISOString(),
+    };
+  }
+
+  async listTrash(): Promise<TrashEntry[]> {
+    const root = await this.#trashRoot();
+    if (!root) return [];
+    const entries: TrashEntry[] = [];
+    for await (const entry of Deno.readDir(root)) {
+      const match = TRASH_ID.exec(entry.name);
+      if (!match || !entry.isDirectory || entry.isSymlink) continue;
+      try {
+        const { file } = await this.#resolveTrash(entry.name);
+        const source = strictText(await Deno.readFile(file.path));
+        entries.push({
+          id: entry.name,
+          originalId: file.id,
+          title: indexedTitle(file.id, scanMarkdown(source)),
+          deletedAt: new Date(Number(match[1])).toISOString(),
+        });
+      } catch (error) {
+        console.error(`Failed to read trash entry ${entry.name}`, error);
+      }
+    }
+    return entries.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
+  }
+
+  restore(id: string): Promise<NoteFile> {
+    const operation = this.#writeQueue.then(() => this.#restore(id));
+    this.#writeQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  async #restore(id: string): Promise<NoteFile> {
+    const { entryPath, file } = await this.#resolveTrash(id);
+    const target = await this.#resolveId(file.id, false);
+    try {
+      await Deno.link(file.path, target);
+    } catch (error) {
+      if (error instanceof Deno.errors.AlreadyExists) {
+        throw new AppError(
+          "Conflict",
+          "A note already exists at the original path.",
+        );
+      }
+      throw error;
+    }
+    await Deno.remove(entryPath, { recursive: true });
+    await this.reindex(file.id);
+    return await this.read(file.id);
+  }
+
+  deleteTrash(id: string): Promise<void> {
+    const operation = this.#writeQueue.then(() => this.#deleteTrash(id));
+    this.#writeQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  async #deleteTrash(id: string): Promise<void> {
+    this.#validateTrashId(id);
+    try {
+      const { entryPath } = await this.#resolveTrash(id);
+      await Deno.remove(entryPath, { recursive: true });
     } catch (error) {
       if (!(error instanceof AppError) || error.name !== "NotFound") {
         throw error;
       }
     }
-    this.#notes.delete(id);
-    this.#rebuildBacklinks();
   }
 
   #rebuildBacklinks(): void {

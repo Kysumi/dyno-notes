@@ -8,6 +8,7 @@ import { NotesProvider, useNavigation } from "@/components/notes-provider.tsx";
 import { PageContext } from "@/components/page-context.tsx";
 import { PageView } from "@/components/page-view.tsx";
 import { SettingsPage } from "@/components/settings-page.tsx";
+import { Toaster } from "@/components/ui/sonner.tsx";
 import { TooltipProvider } from "@/components/ui/tooltip.tsx";
 import {
   type AppearanceSettings,
@@ -18,15 +19,58 @@ import {
 const SETTINGS_PATH = "/settings";
 const HELP_PATH = "/help";
 
-function AppContent() {
-  const { activePageView } = useNavigation();
-  return activePageView ? (
-    <PageView key={activePageView.id} view={activePageView} />
-  ) : (
-    <>
-      <NoteEditor />
-      <PageContext />
-    </>
+function AppContent({
+  appearance,
+  path,
+  onClosePage,
+  onPathChange,
+  onSaveAppearance,
+}: {
+  appearance: AppearanceSettings;
+  path: string;
+  onClosePage(): void;
+  onPathChange(path: string): void;
+  onSaveAppearance(settings: AppearanceSettings): boolean;
+}) {
+  const { activePageView, saveNow } = useNavigation();
+
+  const openAppPage = async (nextPath: string) => {
+    if (!(await saveNow())) return false;
+    history.pushState({ dynoPage: true }, "", nextPath);
+    onPathChange(nextPath);
+    return true;
+  };
+
+  if (path === HELP_PATH) return <HelpPage onClose={onClosePage} />;
+  if (path === SETTINGS_PATH) {
+    return (
+      <SettingsPage
+        appearance={appearance}
+        onClose={onClosePage}
+        onSave={onSaveAppearance}
+      />
+    );
+  }
+
+  return (
+    <div className="grid h-screen grid-cols-1 grid-rows-[3.25rem_minmax(0,1fr)] overflow-hidden bg-background text-foreground md:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
+      <AppHeader
+        onOpenHelp={() => openAppPage(HELP_PATH)}
+        onOpenSettings={() => openAppPage(SETTINGS_PATH)}
+      />
+      <AppSidebar
+        onOpenHelp={() => void openAppPage(HELP_PATH)}
+        onOpenSettings={() => void openAppPage(SETTINGS_PATH)}
+      />
+      {activePageView ? (
+        <PageView key={activePageView.id} view={activePageView} />
+      ) : (
+        <>
+          <NoteEditor />
+          <PageContext />
+        </>
+      )}
+    </div>
   );
 }
 
@@ -49,11 +93,6 @@ function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
     return () => preferredScheme.removeEventListener("change", apply);
   }, [appearance]);
 
-  const openAppPage = (nextPath: string) => {
-    history.pushState({ dynoPage: true }, "", nextPath);
-    setPath(nextPath);
-  };
-
   const closeAppPage = () => {
     if (history.state?.dynoPage) {
       history.back();
@@ -74,28 +113,20 @@ function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
   };
 
   return (
-    <TooltipProvider>
-      <NotesProvider>
-        {path === HELP_PATH ? (
-          <HelpPage onClose={closeAppPage} />
-        ) : path === SETTINGS_PATH ? (
-          <SettingsPage
+    <>
+      <TooltipProvider>
+        <NotesProvider>
+          <AppContent
             appearance={appearance}
-            onClose={closeAppPage}
-            onSave={saveAppearance}
+            path={path}
+            onClosePage={closeAppPage}
+            onPathChange={setPath}
+            onSaveAppearance={saveAppearance}
           />
-        ) : (
-          <div className="grid h-screen grid-cols-1 grid-rows-[3.25rem_minmax(0,1fr)] overflow-hidden bg-background text-foreground md:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
-            <AppHeader />
-            <AppSidebar
-              onOpenHelp={() => openAppPage(HELP_PATH)}
-              onOpenSettings={() => openAppPage(SETTINGS_PATH)}
-            />
-            <AppContent />
-          </div>
-        )}
-      </NotesProvider>
-    </TooltipProvider>
+        </NotesProvider>
+      </TooltipProvider>
+      <Toaster theme={appearance.scheme} position="bottom-right" />
+    </>
   );
 }
 

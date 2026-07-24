@@ -9,12 +9,14 @@ import {
   useRef,
   useState,
 } from "react";
+import { toast } from "sonner";
 
 import type {
   Backlink,
   NoteFile,
   NoteId,
   NoteSummary,
+  TrashEntry,
 } from "@/lib/contracts.ts";
 import { dateValue, journalDateFromId, journalTitle } from "@/lib/dates.ts";
 import { desktop } from "@/lib/desktop.ts";
@@ -131,6 +133,9 @@ interface NotesContextValue {
   error: string | null;
   conflict: NoteConflict | null;
   backlinks: Backlink[];
+  trash: TrashEntry[];
+  trashLoading: boolean;
+  trashError: string | null;
   resetKey: number;
   focusRequest: { blockId: string; nonce: number } | null;
   changeTitle(title: string): void;
@@ -142,6 +147,9 @@ interface NotesContextValue {
   followWikiLink(rawTarget: string): Promise<boolean>;
   createPage(title: string): Promise<boolean>;
   deleteNote(id: NoteId): Promise<boolean>;
+  refreshTrash(): Promise<boolean>;
+  restoreTrash(id: string, open?: boolean): Promise<boolean>;
+  deleteTrash(id: string): Promise<boolean>;
   importFiles(files: File[]): Promise<string[]>;
   saveNow(): Promise<boolean>;
   keepMine(): Promise<void>;
@@ -169,6 +177,7 @@ interface NavigationContextValue {
   createPage(title: string): Promise<boolean>;
   deleteNote(id: NoteId): Promise<boolean>;
   importFiles(files: File[]): Promise<string[]>;
+  saveNow(): Promise<boolean>;
 }
 
 interface EditorRuntimeContextValue {
@@ -177,6 +186,7 @@ interface EditorRuntimeContextValue {
   focusRequest: { blockId: string; nonce: number } | null;
   draft(): Draft;
   changeContent(content: JSONContent): void;
+  registerBeforeSave(callback: () => void): () => void;
   followWikiLink(rawTarget: string): Promise<boolean>;
   reportError(message: string | null): void;
 }
@@ -207,6 +217,19 @@ export function pushNavigationHistory(
   if (history.entries[history.index]?.id === entry.id) return history;
   const entries = [...history.entries.slice(0, history.index + 1), entry];
   return { entries, index: entries.length - 1 };
+}
+
+export function removeNavigationHistory(
+  history: NavigationHistory,
+  id: NoteId,
+  replacement: NavigationHistory["entries"][number],
+): NavigationHistory {
+  const entries = history.entries.filter((entry) => entry.id !== id);
+  const index =
+    history.entries
+      .slice(0, history.index + 1)
+      .filter((entry) => entry.id !== id).length - 1;
+  return pushNavigationHistory({ entries, index }, replacement);
 }
 
 export function updatePageViewFilters(
@@ -263,6 +286,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<NoteConflict | null>(null);
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
+  const [trash, setTrash] = useState<TrashEntry[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [trashError, setTrashError] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [focusRequest, setFocusRequest] = useState<{
     blockId: string;
@@ -282,11 +308,15 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const draftRef = useRef(draft);
   const noteRef = useRef(note);
   const activeIdRef = useRef<NoteId | null>(null);
+  const beforeSaveCallbacksRef = useRef(new Set<() => void>());
   const coordinatorRef = useRef<SaveCoordinator | null>(null);
   const navigationHistoryRef = useRef(navigationHistory);
 
   if (!coordinatorRef.current) {
     coordinatorRef.current = new SaveCoordinator({
+      prepare: () => {
+        for (const callback of beforeSaveCallbacksRef.current) callback();
+      },
       snapshot: () => ({
         id: activeIdRef.current ?? "",
         source: sourceForDraft(draftRef.current),
@@ -445,6 +475,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const saveNow = useCallback(() => coordinatorRef.current!.flush(), []);
+
+  const registerBeforeSave = useCallback((callback: () => void) => {
+    beforeSaveCallbacksRef.current.add(callback);
+    return () => beforeSaveCallbacksRef.current.delete(callback);
+  }, []);
 
   useEffect(() => {
     if (!changeTick) return;
@@ -653,31 +688,112 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     [openNote],
   );
 
+  const refreshTrash = useCallback(async () => {
+    setTrashLoading(true);
+    setTrashError(null);
+    try {
+      setTrash(await desktop.trashList());
+      return true;
+    } catch (failure) {
+      setTrashError(message(failure));
+      return false;
+    } finally {
+      setTrashLoading(false);
+    }
+  }, []);
+
+  const restoreTrash = useCallback(
+    async (id: string, open = false) => {
+      if (open && !(await saveNow())) return false;
+      setTrashError(null);
+      try {
+        const restored = await desktop.trashRestore(id);
+        setTrash((current) => current.filter((entry) => entry.id !== id));
+        try {
+          setNotes(await desktop.notesList());
+        } catch (failure) {
+          setError(message(failure));
+        }
+        if (open) {
+          applyFile(restored);
+          setActivePageViewId(null);
+          recordNavigation(restored.id);
+        }
+        toast.success("Note restored", { description: restored.title });
+        return true;
+      } catch (failure) {
+        const errorMessage = message(failure);
+        setTrashError(errorMessage);
+        toast.error("Note could not be restored", {
+          description: errorMessage,
+        });
+        return false;
+      }
+    },
+    [applyFile, recordNavigation, saveNow],
+  );
+
+  const deleteTrash = useCallback(async (id: string) => {
+    setTrashError(null);
+    try {
+      await desktop.trashDelete(id);
+      setTrash((current) => current.filter((entry) => entry.id !== id));
+      toast.success("Note permanently deleted");
+      return true;
+    } catch (failure) {
+      const errorMessage = message(failure);
+      setTrashError(errorMessage);
+      toast.error("Note could not be deleted", { description: errorMessage });
+      return false;
+    }
+  }, []);
+
   const deleteNote = useCallback(
     async (id: NoteId) => {
+      if (!(await saveNow())) return false;
       try {
-        await desktop.notesDelete(id);
-        const remainingNotes = await desktop.notesList();
+        const entry = await desktop.notesTrash(id);
+        const remainingNotes = await desktop
+          .notesList()
+          .catch(() => notes.filter((summary) => summary.id !== id));
         setNotes(remainingNotes);
+        setTrash((current) => [
+          entry,
+          ...current.filter((item) => item.id !== entry.id),
+        ]);
         if (id === activeIdRef.current) {
-          if (remainingNotes.length > 0) {
-            // Open another note, preferably a page
-            const fallback =
-              remainingNotes.find((n) => n.kind === "page") ||
-              remainingNotes[0];
-            await openNote(fallback.id);
-          } else {
-            // No notes left, fallback to today's journal
-            await openNote(`journals/${dateValue()}.md`);
-          }
+          const recent = remainingNotes.toSorted((a, b) =>
+            b.updatedAt.localeCompare(a.updatedAt),
+          );
+          const fallback =
+            recent.find((summary) => summary.kind === "page") ?? recent[0];
+          const fallbackFile = fallback
+            ? await readNote(fallback.id).catch(() => emptyJournal(dateValue()))
+            : emptyJournal(dateValue());
+          applyFile(fallbackFile);
+          setActivePageViewId(null);
+          const nextHistory = removeNavigationHistory(
+            navigationHistoryRef.current,
+            id,
+            { id: fallbackFile.id },
+          );
+          navigationHistoryRef.current = nextHistory;
+          setNavigationHistory(nextHistory);
         }
+        toast.success("Moved to Trash", {
+          description: entry.title,
+          action: {
+            label: "Undo",
+            onClick: () => void restoreTrash(entry.id, true),
+          },
+        });
         return true;
       } catch (failure) {
         setError(message(failure));
         return false;
       }
     },
-    [openNote],
+    [applyFile, notes, restoreTrash, saveNow],
   );
 
   const setMode = useCallback((mode: EditorMode) => {
@@ -751,6 +867,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       error,
       conflict,
       backlinks,
+      trash,
+      trashLoading,
+      trashError,
       resetKey,
       focusRequest,
       changeTitle: (title) => updateDraft({ title }),
@@ -762,6 +881,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       followWikiLink,
       createPage,
       deleteNote,
+      refreshTrash,
+      restoreTrash,
+      deleteTrash,
       importFiles,
       saveNow,
       keepMine,
@@ -779,6 +901,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       error,
       conflict,
       backlinks,
+      trash,
+      trashLoading,
+      trashError,
       resetKey,
       focusRequest,
       setMode,
@@ -787,6 +912,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       followWikiLink,
       createPage,
       deleteNote,
+      refreshTrash,
+      restoreTrash,
+      deleteTrash,
       importFiles,
       saveNow,
       keepMine,
@@ -820,6 +948,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       createPage,
       deleteNote,
       importFiles,
+      saveNow,
     }),
     [
       workspacePath,
@@ -838,6 +967,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       createPage,
       deleteNote,
       importFiles,
+      saveNow,
     ],
   );
 
@@ -848,10 +978,18 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       focusRequest,
       draft: () => draftRef.current,
       changeContent: (content) => updateDraft({ content }),
+      registerBeforeSave,
       followWikiLink,
       reportError: setError,
     }),
-    [notes, note?.id, focusRequest, updateDraft, followWikiLink],
+    [
+      notes,
+      note?.id,
+      focusRequest,
+      updateDraft,
+      registerBeforeSave,
+      followWikiLink,
+    ],
   );
 
   return (

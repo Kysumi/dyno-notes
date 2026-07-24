@@ -333,13 +333,28 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                   </p>
                 </HelpRow>
                 <Separator />
+                <HelpRow title="Trash">
+                  <p>
+                    Moving a note to Trash keeps it in the workspace Trash. Use
+                    the Undo action immediately, or open Settings → Trash to
+                    restore it later.
+                  </p>
+                  <p>
+                    Restore returns the note to its original path. If another
+                    file already exists there, Dyno leaves the note in Trash
+                    instead of overwriting either file.
+                  </p>
+                  <p>
+                    Permanently deleting a note from Trash cannot be undone.
+                  </p>
+                </HelpRow>
+                <Separator />
                 <HelpRow title="External changes">
                   <p>
                     Dyno notices edits made outside the app. If your local edits
                     conflict with the file on disk, compare both versions and
                     choose Keep mine or Use disk.
                   </p>
-                  <p>Deleting a note permanently removes its workspace file.</p>
                 </HelpRow>
               </HelpSection>
             </div>

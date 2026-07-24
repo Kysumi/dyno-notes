@@ -2,14 +2,29 @@ import {
   ArrowLeft,
   Check,
   Download,
+  FileText,
+  Loader2,
   Monitor,
   Moon,
   Palette,
+  RefreshCw,
+  RotateCcw,
   Sun,
+  Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { useNavigation } from "@/components/notes-provider.tsx";
+import { useNavigation, useNotes } from "@/components/notes-provider.tsx";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Card,
@@ -25,7 +40,12 @@ import type { AppearanceSettings, ColorScheme } from "@/lib/appearance.ts";
 import { colorways } from "@/lib/appearance.ts";
 import { cn } from "@/lib/utils.ts";
 
-type SettingsSection = "appearance" | "import";
+type SettingsSection = "appearance" | "import" | "trash";
+
+const deletedAtFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 const schemes: Array<{
   id: ColorScheme;
@@ -336,6 +356,184 @@ function ImportSettingsPanel() {
   );
 }
 
+function TrashSettingsPanel() {
+  const {
+    trash,
+    trashError,
+    trashLoading,
+    refreshTrash,
+    restoreTrash,
+    deleteTrash,
+  } = useNotes();
+  const [workingId, setWorkingId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void refreshTrash();
+  }, [refreshTrash]);
+
+  const restore = async (id: string) => {
+    setWorkingId(id);
+    await restoreTrash(id);
+    setWorkingId(null);
+  };
+
+  const remove = async (id: string) => {
+    setDeleteId(null);
+    setWorkingId(id);
+    await deleteTrash(id);
+    setWorkingId(null);
+  };
+
+  const deleteEntry = trash.find((entry) => entry.id === deleteId);
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-8 p-6 sm:p-10">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-widest text-primary uppercase">
+            <Trash2 className="size-4" /> Recover notes
+          </p>
+          <h1 className="font-serif text-3xl font-semibold tracking-tight">
+            Trash
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+            Restore notes to their original path or permanently remove them.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={trashLoading}
+          onClick={() => void refreshTrash()}
+        >
+          <RefreshCw className={cn(trashLoading && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      {trashError ? (
+        <Card className="border-destructive/40 shadow-none" role="alert">
+          <CardHeader>
+            <CardTitle>Trash action failed</CardTitle>
+            <CardDescription>{trashError}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refreshTrash()}
+            >
+              Refresh
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {trashLoading && !trash.length ? (
+        <div
+          className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"
+          role="status"
+        >
+          <Loader2 className="size-4 animate-spin" /> Loading Trash…
+        </div>
+      ) : trashError && !trash.length ? null : !trash.length ? (
+        <Card className="shadow-none">
+          <CardContent className="flex flex-col items-center py-14 text-center">
+            <Trash2 className="mb-4 size-8 text-muted-foreground" />
+            <p className="font-medium">Trash is empty</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Notes moved to Trash will appear here.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="gap-0 py-0 shadow-none">
+          <ul>
+            {trash.map((entry, index) => (
+              <li key={entry.id}>
+                <div className="flex items-center gap-4 px-4 py-4">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <FileText className="size-4 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {entry.title}
+                    </p>
+                    <p className="truncate font-mono text-xs text-muted-foreground">
+                      {entry.originalId}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Deleted{" "}
+                      {deletedAtFormatter.format(new Date(entry.deletedAt))}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={workingId === entry.id}
+                      onClick={() => void restore(entry.id)}
+                    >
+                      {workingId === entry.id ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <RotateCcw />
+                      )}
+                      Restore
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      disabled={workingId === entry.id}
+                      aria-label={`Permanently delete ${entry.title}`}
+                      title="Permanently delete"
+                      onClick={() => setDeleteId(entry.id)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </div>
+                {index < trash.length - 1 ? <Separator /> : null}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <AlertDialog
+        open={Boolean(deleteEntry)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete this note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteEntry
+                ? `${deleteEntry.title} will be removed from Trash. This action cannot be undone.`
+                : "This note will be removed from Trash."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deleteEntry) void remove(deleteEntry.id);
+              }}
+            >
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export function SettingsPage({
   appearance,
   onClose,
@@ -398,6 +596,17 @@ export function SettingsPage({
             >
               <Download /> Import
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "justify-start",
+                section === "trash" && "bg-accent text-accent-foreground",
+              )}
+              onClick={() => setSection("trash")}
+            >
+              <Trash2 /> Trash
+            </Button>
           </nav>
           <Separator className="my-4" />
           <p className="hidden px-2 text-xs leading-5 text-muted-foreground sm:block">
@@ -412,8 +621,10 @@ export function SettingsPage({
               onChange={change}
               onSave={save}
             />
-          ) : (
+          ) : section === "import" ? (
             <ImportSettingsPanel />
+          ) : (
+            <TrashSettingsPanel />
           )}
         </ScrollArea>
       </div>

@@ -549,27 +549,27 @@ function DeleteDialog() {
         size="icon-sm"
         className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         onClick={() => setOpen(true)}
-        aria-label="Delete note"
-        title="Delete note"
+        aria-label="Move note to Trash"
+        title="Move to Trash"
       >
         <Trash2 className="h-4 w-4" />
       </Button>
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this note?</AlertDialogTitle>
+            <AlertDialogTitle>Move this note to Trash?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the file from your workspace. This
-              action cannot be undone.
+              You can restore it from Settings → Trash until you permanently
+              delete it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => void deleteNote(note.id)}
             >
-              Delete note
+              Move to Trash
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -274,6 +274,84 @@ Deno.test("ambiguous titles stay unresolved and deletion removes derived backlin
     equal(workspace.search("Source").length, 0);
   }));
 
+Deno.test("trash preserves bytes, removes indexes, and restores the original path", () =>
+  fixture(async (workspace, root) => {
+    const bytes = new TextEncoder().encode(
+      "# Project Orbit\r\n\r\nSee [[pages/source]].\r\n",
+    );
+    await Deno.writeFile(`${root}/pages/orbit.md`, bytes);
+    await Deno.writeTextFile(
+      `${root}/pages/source.md`,
+      "# Source\n\n[[pages/orbit]]\n",
+    );
+    await workspace.rebuildIndex();
+
+    const entry = await workspace.trash("pages/orbit.md");
+    equal(entry.originalId, "pages/orbit.md");
+    equal(entry.title, "Project Orbit");
+    equal(workspace.search("Project Orbit").length, 0);
+    equal(workspace.backlinks({ noteId: "pages/orbit.md" }).length, 0);
+    await rejects(
+      () => Deno.stat(`${root}/pages/orbit.md`),
+      Deno.errors.NotFound,
+    );
+
+    const listed = await workspace.listTrash();
+    deepStrictEqual(listed, [entry]);
+    deepStrictEqual(
+      await Deno.readFile(`${root}/.trash/${entry.id}/pages/orbit.md`),
+      bytes,
+    );
+
+    const restored = await workspace.restore(entry.id);
+    equal(restored.id, "pages/orbit.md");
+    deepStrictEqual(await Deno.readFile(`${root}/pages/orbit.md`), bytes);
+    deepStrictEqual(await workspace.listTrash(), []);
+    equal(workspace.search("Project Orbit")[0].id, "pages/orbit.md");
+  }));
+
+Deno.test("trash restore never overwrites and permanent deletion is idempotent", () =>
+  fixture(async (workspace, root) => {
+    const note = await workspace.create({ kind: "page", title: "Keep Both" });
+    const entry = await workspace.trash(note.id);
+    await Deno.writeTextFile(`${root}/${note.id}`, "# Replacement\n");
+
+    await rejects(
+      () => workspace.restore(entry.id),
+      (error: unknown) =>
+        error instanceof AppError && error.name === "Conflict",
+    );
+    equal(await Deno.readTextFile(`${root}/${note.id}`), "# Replacement\n");
+    equal((await workspace.listTrash())[0].id, entry.id);
+
+    await workspace.deleteTrash(entry.id);
+    await workspace.deleteTrash(entry.id);
+    deepStrictEqual(await workspace.listTrash(), []);
+  }));
+
+Deno.test("trash rejects invalid IDs and symlinks", () =>
+  fixture(async (workspace, root) => {
+    for (const id of ["../entry", "not-an-entry"]) {
+      await rejects(
+        () => workspace.restore(id),
+        (error: unknown) =>
+          error instanceof AppError && error.name === "InvalidNoteId",
+      );
+    }
+
+    const entry = await workspace.trash(
+      (await workspace.create({ kind: "page", title: "Unsafe" })).id,
+    );
+    const trashFile = `${root}/.trash/${entry.id}/pages/unsafe.md`;
+    await Deno.remove(trashFile);
+    await Deno.symlink(`${root}/pages`, trashFile);
+    await rejects(
+      () => workspace.restore(entry.id),
+      (error: unknown) =>
+        error instanceof AppError && error.name === "InvalidNoteId",
+    );
+  }));
+
 Deno.test("cleanup only removes stale Dyno temporary files", () =>
   fixture(async (workspace, root) => {
     const stale = `${root}/pages/.dyno-stale.tmp`;
