@@ -53,6 +53,8 @@ function isValidCalendarDate(
   );
 }
 
+export const DEADLINE_SOON_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const SLASH_DATE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 const TIME = /^(\d{1,2}):(\d{2})$/;
@@ -68,10 +70,16 @@ export function parseDeadlineInput(
 ): string | null {
   const iso = ISO_DATE.exec(rawDate);
   const slash = SLASH_DATE.exec(rawDate);
-  if (!iso && !slash) return null;
-  const [year, month, day] = iso
-    ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
-    : [Number(slash![3]), Number(slash![2]), Number(slash![1])];
+  let year: number;
+  let month: number;
+  let day: number;
+  if (iso) {
+    [year, month, day] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+  } else if (slash) {
+    [day, month, year] = [Number(slash[1]), Number(slash[2]), Number(slash[3])];
+  } else {
+    return null;
+  }
   if (!isValidCalendarDate(year, month, day)) return null;
 
   const datePart = `${year}-${pad(month)}-${pad(day)}`;

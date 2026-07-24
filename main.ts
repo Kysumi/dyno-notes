@@ -5,7 +5,11 @@ import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { AppError, Workspace } from "./src/host.ts";
 import { rejectInvalidApiRequest } from "./src/lib/api-request.ts";
 import { base64ToBytes } from "./src/lib/base64.ts";
-import { deadlineTimestamp, formatDeadline } from "./src/lib/dates.ts";
+import {
+  DEADLINE_SOON_WINDOW_MS,
+  deadlineTimestamp,
+  formatDeadline,
+} from "./src/lib/dates.ts";
 
 interface DesktopWindow extends EventTarget {
   close(): void;
@@ -146,9 +150,8 @@ async function serveApi(request: Request, name: string): Promise<Response> {
   }
 }
 
-// ponytail: a 24h lookahead window, checked on save and every 30 minutes;
-// add snooze/config knobs when someone actually wants them.
-const DEADLINE_NOTICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+// ponytail: checked on save and every 30 minutes; add snooze/config knobs
+// when someone actually wants them.
 const notifiedTasks = new Set<string>();
 
 async function ensureNotificationPermission(): Promise<boolean> {
@@ -164,7 +167,7 @@ async function checkTaskDeadlines(): Promise<void> {
   for (const task of workspace.tasks()) {
     if (task.checked || !task.deadline || notifiedTasks.has(task.id)) continue;
     const due = deadlineTimestamp(task.deadline);
-    if (due - now > DEADLINE_NOTICE_WINDOW_MS) continue;
+    if (due - now > DEADLINE_SOON_WINDOW_MS) continue;
     notifiedTasks.add(task.id);
     const notification = new Notification(
       due < now ? "Task overdue" : "Task due soon",

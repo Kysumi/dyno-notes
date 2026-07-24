@@ -35,6 +35,7 @@ type EditorMode = "wysiwyg" | "source";
 export interface PageViewFilters {
   query: string;
   hasOpenTasks: boolean;
+  dueSoon: boolean;
   tag: string | null;
   attributeKey: string | null;
   showAs?: "pages" | "tasks";
@@ -50,6 +51,7 @@ export interface PageViewDefinition {
 const EMPTY_PAGE_VIEW_FILTERS: PageViewFilters = {
   query: "",
   hasOpenTasks: false,
+  dueSoon: false,
   tag: null,
   attributeKey: null,
   showAs: "pages",
@@ -84,6 +86,7 @@ function storedPageViews(): PageViewDefinition[] {
         typeof filters?.query !== "string" ||
         filters.query.length > 200 ||
         typeof filters?.hasOpenTasks !== "boolean" ||
+        typeof filters?.dueSoon !== "boolean" ||
         !(filters?.tag === null || typeof filters?.tag === "string") ||
         !(
           filters?.attributeKey === null ||

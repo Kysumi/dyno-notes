@@ -1,5 +1,7 @@
 import { deepStrictEqual, equal, ok } from "node:assert/strict";
+import { getSchema } from "@tiptap/core";
 
+import { editorExtensions } from "./editor-extensions.ts";
 import { parseMarkdown, serializeMarkdown } from "./markdown-codec.ts";
 
 const supported = `# Project Orbit
@@ -76,4 +78,9 @@ Deno.test("a missing leading title stays in protected source mode", () => {
   const parsed = parseMarkdown("Body without a title.\n");
   equal(parsed.supported, false);
   deepStrictEqual(parsed.unsupportedReasons, ["a missing leading H1 title"]);
+});
+
+Deno.test("an empty WYSIWYG document defaults to a paragraph", () => {
+  const document = getSchema(editorExtensions()).topNodeType.createAndFill();
+  equal(document?.firstChild?.type.name, "paragraph");
 });

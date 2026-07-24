@@ -134,7 +134,6 @@ export const WikiLink = Node.create({
 
 export const TldrawExtension = Node.create({
   name: "tldraw",
-  priority: 1100,
   group: "block",
   atom: true,
 
