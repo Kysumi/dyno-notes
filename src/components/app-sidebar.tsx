@@ -9,7 +9,8 @@ import {
 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
-import { useNavigation } from "@/components/notes-provider.tsx";
+import { useWorkspace } from "@/components/notes-provider.tsx";
+import { useActiveTabNavigation } from "@/components/tabs-provider.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Dialog,
@@ -25,7 +26,7 @@ import { Separator } from "@/components/ui/separator.tsx";
 import { dateValue } from "@/lib/dates.ts";
 
 function NewPageDialog() {
-  const { createPage } = useNavigation();
+  const { createPage } = useActiveTabNavigation();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
 
@@ -80,7 +81,7 @@ function NewPageDialog() {
 }
 
 function NewViewDialog() {
-  const { createPageView } = useNavigation();
+  const { createPageView } = useWorkspace();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
 
@@ -150,15 +151,9 @@ export function AppSidebar({
   onOpenHelp(): void;
   onOpenSettings(): void;
 }) {
-  const {
-    notes,
-    noteId,
-    pageViews,
-    activePageView,
-    openNote,
-    openPageView,
-    deletePageView,
-  } = useNavigation();
+  const { notes, pageViews, deletePageView } = useWorkspace();
+  const { noteId, activePageView, openNote, openPageView } =
+    useActiveTabNavigation();
   const journalId = `journals/${dateValue()}.md`;
   const journals = notes
     .filter((summary) => summary.kind === "journal")

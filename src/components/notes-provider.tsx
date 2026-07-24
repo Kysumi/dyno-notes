@@ -11,6 +11,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { useTabs } from "@/components/tabs-provider.tsx";
 import type {
   Backlink,
   NoteFile,
@@ -123,8 +124,32 @@ export interface NoteConflict {
   localSource: string;
 }
 
-interface NotesContextValue {
+interface WorkspaceContextValue {
   workspacePath: string;
+  notes: NoteSummary[];
+  updateNoteSummary(
+    id: NoteId,
+    kind: NoteFile["kind"],
+    title: string,
+    source: string,
+    updatedAt: string,
+  ): void;
+  trash: TrashEntry[];
+  trashLoading: boolean;
+  trashError: string | null;
+  refreshTrash(): Promise<boolean>;
+  restoreTrash(id: string): Promise<boolean>;
+  deleteTrash(id: string): Promise<boolean>;
+  deleteNote(id: NoteId): Promise<boolean>;
+  pageViews: PageViewDefinition[];
+  createPageView(name: string, filters?: PageViewFilters): string;
+  updatePageView(id: string, filters: PageViewFilters): void;
+  deletePageView(id: string): void;
+  createPage(title: string): Promise<NoteFile | null>;
+  importFiles(files: File[]): Promise<string[]>;
+}
+
+interface NotesContextValue {
   notes: NoteSummary[];
   note: NoteFile | null;
   draft: Draft;
@@ -133,24 +158,13 @@ interface NotesContextValue {
   error: string | null;
   conflict: NoteConflict | null;
   backlinks: Backlink[];
-  trash: TrashEntry[];
-  trashLoading: boolean;
-  trashError: string | null;
   resetKey: number;
-  focusRequest: { blockId: string; nonce: number } | null;
   changeTitle(title: string): void;
-  changeContent(content: JSONContent): void;
   changeSource(source: string): void;
   setMode(mode: EditorMode): boolean;
   convertSource(): void;
   openNote(id: NoteId, blockId?: string): Promise<boolean>;
-  followWikiLink(rawTarget: string): Promise<boolean>;
-  createPage(title: string): Promise<boolean>;
   deleteNote(id: NoteId): Promise<boolean>;
-  refreshTrash(): Promise<boolean>;
-  restoreTrash(id: string, open?: boolean): Promise<boolean>;
-  deleteTrash(id: string): Promise<boolean>;
-  importFiles(files: File[]): Promise<string[]>;
   saveNow(): Promise<boolean>;
   keepMine(): Promise<void>;
   useDisk(): void;
@@ -159,10 +173,8 @@ interface NotesContextValue {
 }
 
 interface NavigationContextValue {
-  workspacePath: string;
   notes: NoteSummary[];
   noteId: NoteId | null;
-  pageViews: PageViewDefinition[];
   activePageView: PageViewDefinition | null;
   canGoBack: boolean;
   canGoForward: boolean;
@@ -172,12 +184,8 @@ interface NavigationContextValue {
   openPageView(id: string): Promise<boolean>;
   createPageView(name: string, filters?: PageViewFilters): string;
   updatePageView(id: string, filters: PageViewFilters): void;
-  deletePageView(id: string): void;
   openJournal(date: string): Promise<boolean>;
   createPage(title: string): Promise<boolean>;
-  deleteNote(id: NoteId): Promise<boolean>;
-  importFiles(files: File[]): Promise<string[]>;
-  saveNow(): Promise<boolean>;
 }
 
 interface EditorRuntimeContextValue {
@@ -199,6 +207,7 @@ const emptyDraft: Draft = {
   unsupportedReasons: [],
 };
 
+const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 const NotesContext = createContext<NotesContextValue | null>(null);
 const NavigationContext = createContext<NavigationContextValue | null>(null);
 const EditorRuntimeContext = createContext<EditorRuntimeContextValue | null>(
@@ -242,6 +251,13 @@ export function updatePageViewFilters(
   );
 }
 
+function fallbackNote(remaining: NoteSummary[]): NoteSummary | undefined {
+  const recent = remaining.toSorted((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt),
+  );
+  return recent.find((summary) => summary.kind === "page") ?? recent[0];
+}
+
 function sourceForDraft(draft: Draft): string {
   return draft.mode === "source"
     ? draft.source
@@ -276,9 +292,314 @@ async function readNote(id: NoteId): Promise<NoteFile> {
   }
 }
 
-export function NotesProvider({ children }: { children: ReactNode }) {
+interface NoteRemovedDetail {
+  id: NoteId;
+  remainingNotes: NoteSummary[];
+}
+
+export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspacePath, setWorkspacePath] = useState("");
   const [notes, setNotes] = useState<NoteSummary[]>([]);
+  const [trash, setTrash] = useState<TrashEntry[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [trashError, setTrashError] = useState<string | null>(null);
+  const [customPageViews, setCustomPageViews] = useState(storedPageViews);
+
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [info, summaries] = await Promise.all([
+          desktop.workspaceInfo(),
+          desktop.notesList(),
+        ]);
+        if (cancelled) return;
+        setWorkspacePath(info.path);
+        setNotes(summaries);
+      } catch (failure) {
+        if (!cancelled) {
+          toast.error("The workspace could not be loaded.", {
+            description: message(failure),
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const updateNoteSummary = useCallback(
+    (
+      id: NoteId,
+      kind: NoteFile["kind"],
+      title: string,
+      source: string,
+      updatedAt: string,
+    ) => {
+      setNotes((current) => {
+        const scanned = scanMarkdown(source);
+        const summary: NoteSummary = {
+          id,
+          kind,
+          title,
+          updatedAt,
+          wordCount: scanned.wordCount,
+          tags: scanned.tags,
+          attributes: scanned.attributes,
+          openTasks: scanned.tasks.filter((t) => !t.checked).length,
+          completedTasks: scanned.tasks.filter((t) => t.checked).length,
+        };
+        return current.some((note) => note.id === id)
+          ? current.map((note) => (note.id === id ? summary : note))
+          : [...current, summary];
+      });
+    },
+    [],
+  );
+
+  const refreshNotes = useCallback(async () => {
+    try {
+      setNotes(await desktop.notesList());
+    } catch (failure) {
+      toast.error("The notes list could not refresh.", {
+        description: message(failure),
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const changed = () => void refreshNotes();
+    const focused = () => void refreshNotes();
+    const watcherFailed = () =>
+      toast.error("Live file watching stopped.", {
+        description: "Dyno Notes will refresh when the window regains focus.",
+      });
+    globalThis.addEventListener("dyno:workspace-change", changed);
+    globalThis.addEventListener("dyno:watcher-error", watcherFailed);
+    globalThis.addEventListener("focus", focused);
+    return () => {
+      globalThis.removeEventListener("dyno:workspace-change", changed);
+      globalThis.removeEventListener("dyno:watcher-error", watcherFailed);
+      globalThis.removeEventListener("focus", focused);
+    };
+  }, [refreshNotes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PAGE_VIEWS_KEY, JSON.stringify(customPageViews));
+    } catch {
+      // The views still work for this session if browser storage is unavailable.
+    }
+  }, [customPageViews]);
+
+  const refreshTrash = useCallback(async () => {
+    setTrashLoading(true);
+    setTrashError(null);
+    try {
+      setTrash(await desktop.trashList());
+      return true;
+    } catch (failure) {
+      setTrashError(message(failure));
+      return false;
+    } finally {
+      setTrashLoading(false);
+    }
+  }, []);
+
+  const restoreTrash = useCallback(async (id: string) => {
+    setTrashError(null);
+    try {
+      const restored = await desktop.trashRestore(id);
+      setTrash((current) => current.filter((entry) => entry.id !== id));
+      // ponytail: a failed list refresh here is best-effort, not surfaced.
+      setNotes(await desktop.notesList().catch(() => notesRef.current));
+      toast.success("Note restored", { description: restored.title });
+      return true;
+    } catch (failure) {
+      const errorMessage = message(failure);
+      setTrashError(errorMessage);
+      toast.error("Note could not be restored", {
+        description: errorMessage,
+      });
+      return false;
+    }
+  }, []);
+
+  const deleteTrash = useCallback(async (id: string) => {
+    setTrashError(null);
+    try {
+      await desktop.trashDelete(id);
+      setTrash((current) => current.filter((entry) => entry.id !== id));
+      toast.success("Note permanently deleted");
+      return true;
+    } catch (failure) {
+      const errorMessage = message(failure);
+      setTrashError(errorMessage);
+      toast.error("Note could not be deleted", { description: errorMessage });
+      return false;
+    }
+  }, []);
+
+  const deleteNote = useCallback(
+    async (id: NoteId) => {
+      try {
+        const entry = await desktop.notesTrash(id);
+        const remainingNotes = await desktop
+          .notesList()
+          .catch(() => notesRef.current.filter((summary) => summary.id !== id));
+        setNotes(remainingNotes);
+        setTrash((current) => [
+          entry,
+          ...current.filter((item) => item.id !== entry.id),
+        ]);
+        globalThis.dispatchEvent(
+          new CustomEvent<NoteRemovedDetail>("dyno:note-removed", {
+            detail: { id, remainingNotes },
+          }),
+        );
+        toast.success("Moved to Trash", {
+          description: entry.title,
+          action: { label: "Undo", onClick: () => void restoreTrash(entry.id) },
+        });
+        return true;
+      } catch (failure) {
+        toast.error("Note could not be deleted", {
+          description: message(failure),
+        });
+        return false;
+      }
+    },
+    [restoreTrash],
+  );
+
+  const createPageView = useCallback(
+    (name: string, filters = EMPTY_PAGE_VIEW_FILTERS) => {
+      const id = crypto.randomUUID();
+      const view: PageViewDefinition = {
+        id,
+        name: name.trim().slice(0, 80),
+        filters: { ...filters },
+        custom: true,
+      };
+      setCustomPageViews((current) => [...current, view]);
+      return id;
+    },
+    [],
+  );
+
+  const updatePageView = useCallback((id: string, filters: PageViewFilters) => {
+    setCustomPageViews((current) =>
+      updatePageViewFilters(current, id, filters),
+    );
+  }, []);
+
+  const deletePageView = useCallback((id: string) => {
+    setCustomPageViews((current) => current.filter((view) => view.id !== id));
+  }, []);
+
+  const createPage = useCallback(async (title: string) => {
+    try {
+      const file = await desktop.notesCreate({ kind: "page", title });
+      setNotes(await desktop.notesList());
+      return file;
+    } catch (failure) {
+      toast.error("Page could not be created", {
+        description: message(failure),
+      });
+      return null;
+    }
+  }, []);
+
+  const importFiles = useCallback(async (files: File[]) => {
+    const failures: string[] = [];
+    for (const file of files) {
+      try {
+        await desktop.notesImport([
+          {
+            name: file.name,
+            bytes: new Uint8Array(await file.arrayBuffer()),
+          },
+        ]);
+      } catch (failure) {
+        failures.push(`${file.name}: ${message(failure)}`);
+      }
+    }
+    setNotes(await desktop.notesList());
+    return failures;
+  }, []);
+
+  const value = useMemo<WorkspaceContextValue>(
+    () => ({
+      workspacePath,
+      notes,
+      updateNoteSummary,
+      trash,
+      trashLoading,
+      trashError,
+      refreshTrash,
+      restoreTrash,
+      deleteTrash,
+      deleteNote,
+      pageViews: [OPEN_TASKS_VIEW, ...customPageViews],
+      createPageView,
+      updatePageView,
+      deletePageView,
+      createPage,
+      importFiles,
+    }),
+    [
+      workspacePath,
+      notes,
+      updateNoteSummary,
+      trash,
+      trashLoading,
+      trashError,
+      refreshTrash,
+      restoreTrash,
+      deleteTrash,
+      deleteNote,
+      customPageViews,
+      createPageView,
+      updatePageView,
+      deletePageView,
+      createPage,
+      importFiles,
+    ],
+  );
+
+  return (
+    <WorkspaceContext.Provider value={value}>
+      {children}
+    </WorkspaceContext.Provider>
+  );
+}
+
+export function useWorkspace(): WorkspaceContextValue {
+  const context = useContext(WorkspaceContext);
+  if (!context) {
+    throw new Error("useWorkspace must be used inside WorkspaceProvider.");
+  }
+  return context;
+}
+
+export function TabProvider({
+  tabId,
+  initialNoteId,
+  initialPageViewId,
+  children,
+}: {
+  tabId: string;
+  initialNoteId?: NoteId;
+  initialPageViewId?: string;
+  children: ReactNode;
+}) {
+  const workspace = useWorkspace();
+  const { publishTabInfo, removeTabInfo } = useTabs();
+
   const [note, setNote] = useState<NoteFile | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [status, setStatus] = useState<SaveStatus>("saved");
@@ -286,9 +607,6 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<NoteConflict | null>(null);
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
-  const [trash, setTrash] = useState<TrashEntry[]>([]);
-  const [trashLoading, setTrashLoading] = useState(false);
-  const [trashError, setTrashError] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [focusRequest, setFocusRequest] = useState<{
     blockId: string;
@@ -297,12 +615,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [changeTick, setChangeTick] = useState(0);
   const [retryTick, setRetryTick] = useState(0);
   const [navigationHistory, setNavigationHistory] = useState<NavigationHistory>(
-    {
-      entries: [],
-      index: -1,
-    },
+    { entries: [], index: -1 },
   );
-  const [customPageViews, setCustomPageViews] = useState(storedPageViews);
   const [activePageViewId, setActivePageViewId] = useState<string | null>(null);
 
   const draftRef = useRef(draft);
@@ -311,6 +625,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const beforeSaveCallbacksRef = useRef(new Set<() => void>());
   const coordinatorRef = useRef<SaveCoordinator | null>(null);
   const navigationHistoryRef = useRef(navigationHistory);
+  const initialNoteIdRef = useRef(initialNoteId);
+  const initialPageViewIdRef = useRef(initialPageViewId);
 
   if (!coordinatorRef.current) {
     coordinatorRef.current = new SaveCoordinator({
@@ -333,23 +649,13 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         };
         noteRef.current = updated;
         setNote(updated);
-        setNotes((current) => {
-          const scanned = scanMarkdown(snapshot.source);
-          const summary: NoteSummary = {
-            id: snapshot.id,
-            kind: updated.kind,
-            title: draftRef.current.title,
-            updatedAt: result.updatedAt,
-            wordCount: scanned.wordCount,
-            tags: scanned.tags,
-            attributes: scanned.attributes,
-            openTasks: scanned.tasks.filter((t) => !t.checked).length,
-            completedTasks: scanned.tasks.filter((t) => t.checked).length,
-          };
-          return current.some((note) => note.id === snapshot.id)
-            ? current.map((note) => (note.id === snapshot.id ? summary : note))
-            : [...current, summary];
-        });
+        workspace.updateNoteSummary(
+          snapshot.id,
+          updated.kind,
+          updated.title,
+          snapshot.source,
+          result.updatedAt,
+        );
         void desktop.notesBacklinks({ noteId: snapshot.id }).then(setBacklinks);
       },
       failed: async (failure, snapshot) => {
@@ -397,15 +703,39 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       .catch((failure) => setError(message(failure)));
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void (async () => {
+      try {
+        const id = initialNoteIdRef.current ?? `journals/${dateValue()}.md`;
+        const file = await readNote(id);
+        if (cancelled) return;
+        applyFile(file);
+        if (initialPageViewIdRef.current) {
+          setActivePageViewId(initialPageViewIdRef.current);
+        }
+        const initialHistory = { entries: [{ id: file.id }], index: 0 };
+        navigationHistoryRef.current = initialHistory;
+        setNavigationHistory(initialHistory);
+      } catch (failure) {
+        if (!cancelled) setError(message(failure));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyFile, retryTick]);
+
   const refresh = useCallback(async () => {
+    const id = activeIdRef.current;
+    if (!id || !noteRef.current) return;
     try {
-      const summaries = await desktop.notesList();
-      setNotes(summaries);
-      const id = activeIdRef.current;
-      if (!id || !noteRef.current) return;
       if (
         !noteRef.current.revision &&
-        !summaries.some((summary) => summary.id === id)
+        !workspace.notes.some((summary) => summary.id === id)
       )
         return;
       const disk = await desktop.notesRead(id);
@@ -423,56 +753,43 @@ export function NotesProvider({ children }: { children: ReactNode }) {
           : message(failure),
       );
     }
-  }, [applyFile]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    void (async () => {
-      try {
-        const [info, summaries] = await Promise.all([
-          desktop.workspaceInfo(),
-          desktop.notesList(),
-        ]);
-        const date = dateValue();
-        const journalId = `journals/${date}.md`;
-        const file = summaries.some((summary) => summary.id === journalId)
-          ? await desktop.notesRead(journalId)
-          : emptyJournal(date);
-        if (cancelled) return;
-        setWorkspacePath(info.path);
-        setNotes(summaries);
-        applyFile(file);
-        const initialHistory = { entries: [{ id: file.id }], index: 0 };
-        navigationHistoryRef.current = initialHistory;
-        setNavigationHistory(initialHistory);
-      } catch (failure) {
-        if (!cancelled) setError(message(failure));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [applyFile, retryTick]);
+  }, [applyFile, workspace.notes]);
 
   useEffect(() => {
     const changed = () => void refresh();
     const focused = () => void refresh();
-    const watcherFailed = () =>
-      setError(
-        "Live file watching stopped. Dyno Notes will refresh when the window regains focus.",
-      );
     globalThis.addEventListener("dyno:workspace-change", changed);
-    globalThis.addEventListener("dyno:watcher-error", watcherFailed);
     globalThis.addEventListener("focus", focused);
     return () => {
       globalThis.removeEventListener("dyno:workspace-change", changed);
-      globalThis.removeEventListener("dyno:watcher-error", watcherFailed);
       globalThis.removeEventListener("focus", focused);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    const onRemoved = (event: Event) => {
+      const { id, remainingNotes } = (event as CustomEvent<NoteRemovedDetail>)
+        .detail;
+      if (noteRef.current?.id !== id) return;
+      void (async () => {
+        const fallback = fallbackNote(remainingNotes);
+        const fallbackFile = fallback
+          ? await readNote(fallback.id).catch(() => emptyJournal(dateValue()))
+          : emptyJournal(dateValue());
+        applyFile(fallbackFile);
+        setActivePageViewId(null);
+        const nextHistory = removeNavigationHistory(
+          navigationHistoryRef.current,
+          id,
+          { id: fallbackFile.id },
+        );
+        navigationHistoryRef.current = nextHistory;
+        setNavigationHistory(nextHistory);
+      })();
+    };
+    globalThis.addEventListener("dyno:note-removed", onRemoved);
+    return () => globalThis.removeEventListener("dyno:note-removed", onRemoved);
+  }, [applyFile]);
 
   const saveNow = useCallback(() => coordinatorRef.current!.flush(), []);
 
@@ -486,21 +803,6 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     const timer = setTimeout(() => void saveNow(), 750);
     return () => clearTimeout(timer);
   }, [changeTick, saveNow]);
-
-  useEffect(() => {
-    globalThis.__dynoFlush = saveNow;
-    return () => {
-      delete globalThis.__dynoFlush;
-    };
-  }, [saveNow]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(PAGE_VIEWS_KEY, JSON.stringify(customPageViews));
-    } catch {
-      // The views still work for this session if browser storage is unavailable.
-    }
-  }, [customPageViews]);
 
   const updateDraft = useCallback((changes: Partial<Draft>) => {
     const next = { ...draftRef.current, ...changes };
@@ -551,45 +853,12 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const openPageView = useCallback(
     async (id: string) => {
       if (!(await saveNow())) return false;
-      if (
-        id !== OPEN_TASKS_VIEW.id &&
-        !customPageViews.some((view) => view.id === id)
-      )
-        return false;
+      if (!workspace.pageViews.some((view) => view.id === id)) return false;
       setActivePageViewId(id);
       return true;
     },
-    [customPageViews, saveNow],
+    [workspace.pageViews, saveNow],
   );
-
-  const createPageView = useCallback(
-    (name: string, filters = EMPTY_PAGE_VIEW_FILTERS) => {
-      const id = crypto.randomUUID();
-      const view: PageViewDefinition = {
-        id,
-        name: name.trim().slice(0, 80),
-        filters: { ...filters },
-        custom: true,
-      };
-      setCustomPageViews((current) => [...current, view]);
-      setActivePageViewId(id);
-      return id;
-    },
-    [],
-  );
-
-  const updatePageView = useCallback((id: string, filters: PageViewFilters) => {
-    setCustomPageViews((current) =>
-      updatePageViewFilters(current, id, filters),
-    );
-  }, []);
-
-  const deletePageView = useCallback((id: string) => {
-    setCustomPageViews((current) => current.filter((view) => view.id !== id));
-    setActivePageViewId((current) =>
-      current === id ? OPEN_TASKS_VIEW.id : current,
-    );
-  }, []);
 
   const moveHistory = useCallback(
     async (offset: -1 | 1) => {
@@ -619,10 +888,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       const parsed = parseWikiTarget(rawTarget);
       let id = activeIdRef.current;
       if (parsed.target) {
-        const exact = notes.find(
+        const exact = workspace.notes.find(
           (summary) => noteTarget(summary.id) === parsed.target,
         );
-        const titleMatches = notes.filter(
+        const titleMatches = workspace.notes.filter(
           (summary) =>
             normalizeSearchText(summary.title) ===
             normalizeSearchText(parsed.target),
@@ -636,164 +905,33 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       }
       return await openNote(id, parsed.blockId ?? undefined);
     },
-    [notes, openNote],
+    [workspace.notes, openNote],
   );
 
   const createPage = useCallback(
     async (title: string) => {
       if (!(await saveNow())) return false;
-      try {
-        const file = await desktop.notesCreate({ kind: "page", title });
-        setNotes(await desktop.notesList());
-        applyFile(file);
-        setActivePageViewId(null);
-        recordNavigation(file.id);
-        return true;
-      } catch (failure) {
-        setError(message(failure));
-        return false;
-      }
+      const file = await workspace.createPage(title);
+      if (!file) return false;
+      applyFile(file);
+      setActivePageViewId(null);
+      recordNavigation(file.id);
+      return true;
     },
-    [applyFile, recordNavigation, saveNow],
+    [applyFile, recordNavigation, saveNow, workspace],
   );
 
   const openJournal = useCallback(
-    async (date: string) => {
-      return await openNote(`journals/${date}.md`);
-    },
+    async (date: string) => await openNote(`journals/${date}.md`),
     [openNote],
   );
-
-  const importFiles = useCallback(
-    async (files: File[]) => {
-      const failures: string[] = [];
-      let firstId: NoteId | null = null;
-      for (const file of files) {
-        try {
-          const imported = await desktop.notesImport([
-            {
-              name: file.name,
-              bytes: new Uint8Array(await file.arrayBuffer()),
-            },
-          ]);
-          firstId ??= imported[0]?.id ?? null;
-        } catch (failure) {
-          failures.push(`${file.name}: ${message(failure)}`);
-        }
-      }
-      setNotes(await desktop.notesList());
-      if (firstId) await openNote(firstId);
-      return failures;
-    },
-    [openNote],
-  );
-
-  const refreshTrash = useCallback(async () => {
-    setTrashLoading(true);
-    setTrashError(null);
-    try {
-      setTrash(await desktop.trashList());
-      return true;
-    } catch (failure) {
-      setTrashError(message(failure));
-      return false;
-    } finally {
-      setTrashLoading(false);
-    }
-  }, []);
-
-  const restoreTrash = useCallback(
-    async (id: string, open = false) => {
-      if (open && !(await saveNow())) return false;
-      setTrashError(null);
-      try {
-        const restored = await desktop.trashRestore(id);
-        setTrash((current) => current.filter((entry) => entry.id !== id));
-        try {
-          setNotes(await desktop.notesList());
-        } catch (failure) {
-          setError(message(failure));
-        }
-        if (open) {
-          applyFile(restored);
-          setActivePageViewId(null);
-          recordNavigation(restored.id);
-        }
-        toast.success("Note restored", { description: restored.title });
-        return true;
-      } catch (failure) {
-        const errorMessage = message(failure);
-        setTrashError(errorMessage);
-        toast.error("Note could not be restored", {
-          description: errorMessage,
-        });
-        return false;
-      }
-    },
-    [applyFile, recordNavigation, saveNow],
-  );
-
-  const deleteTrash = useCallback(async (id: string) => {
-    setTrashError(null);
-    try {
-      await desktop.trashDelete(id);
-      setTrash((current) => current.filter((entry) => entry.id !== id));
-      toast.success("Note permanently deleted");
-      return true;
-    } catch (failure) {
-      const errorMessage = message(failure);
-      setTrashError(errorMessage);
-      toast.error("Note could not be deleted", { description: errorMessage });
-      return false;
-    }
-  }, []);
 
   const deleteNote = useCallback(
     async (id: NoteId) => {
       if (!(await saveNow())) return false;
-      try {
-        const entry = await desktop.notesTrash(id);
-        const remainingNotes = await desktop
-          .notesList()
-          .catch(() => notes.filter((summary) => summary.id !== id));
-        setNotes(remainingNotes);
-        setTrash((current) => [
-          entry,
-          ...current.filter((item) => item.id !== entry.id),
-        ]);
-        if (id === activeIdRef.current) {
-          const recent = remainingNotes.toSorted((a, b) =>
-            b.updatedAt.localeCompare(a.updatedAt),
-          );
-          const fallback =
-            recent.find((summary) => summary.kind === "page") ?? recent[0];
-          const fallbackFile = fallback
-            ? await readNote(fallback.id).catch(() => emptyJournal(dateValue()))
-            : emptyJournal(dateValue());
-          applyFile(fallbackFile);
-          setActivePageViewId(null);
-          const nextHistory = removeNavigationHistory(
-            navigationHistoryRef.current,
-            id,
-            { id: fallbackFile.id },
-          );
-          navigationHistoryRef.current = nextHistory;
-          setNavigationHistory(nextHistory);
-        }
-        toast.success("Moved to Trash", {
-          description: entry.title,
-          action: {
-            label: "Undo",
-            onClick: () => void restoreTrash(entry.id, true),
-          },
-        });
-        return true;
-      } catch (failure) {
-        setError(message(failure));
-        return false;
-      }
+      return await workspace.deleteNote(id);
     },
-    [applyFile, notes, restoreTrash, saveNow],
+    [saveNow, workspace],
   );
 
   const setMode = useCallback((mode: EditorMode) => {
@@ -858,8 +996,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<NotesContextValue>(
     () => ({
-      workspacePath,
-      notes,
+      notes: workspace.notes,
       note,
       draft,
       status,
@@ -867,24 +1004,13 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       error,
       conflict,
       backlinks,
-      trash,
-      trashLoading,
-      trashError,
       resetKey,
-      focusRequest,
       changeTitle: (title) => updateDraft({ title }),
-      changeContent: (content) => updateDraft({ content }),
       changeSource: (source) => updateDraft({ source }),
       setMode,
       convertSource,
       openNote,
-      followWikiLink,
-      createPage,
       deleteNote,
-      refreshTrash,
-      restoreTrash,
-      deleteTrash,
-      importFiles,
       saveNow,
       keepMine,
       useDisk,
@@ -892,8 +1018,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       reportError: setError,
     }),
     [
-      workspacePath,
-      notes,
+      workspace.notes,
       note,
       draft,
       status,
@@ -901,21 +1026,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       error,
       conflict,
       backlinks,
-      trash,
-      trashLoading,
-      trashError,
       resetKey,
-      focusRequest,
       setMode,
       convertSource,
       openNote,
-      followWikiLink,
-      createPage,
       deleteNote,
-      refreshTrash,
-      restoreTrash,
-      deleteTrash,
-      importFiles,
       saveNow,
       keepMine,
       useDisk,
@@ -923,16 +1038,14 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  const activePageView =
+    workspace.pageViews.find((view) => view.id === activePageViewId) ?? null;
+
   const navigation = useMemo<NavigationContextValue>(
     () => ({
-      workspacePath,
-      notes,
+      notes: workspace.notes,
       noteId: activePageViewId ? null : (note?.id ?? null),
-      pageViews: [OPEN_TASKS_VIEW, ...customPageViews],
-      activePageView:
-        [OPEN_TASKS_VIEW, ...customPageViews].find(
-          (view) => view.id === activePageViewId,
-        ) ?? null,
+      activePageView,
       canGoBack: Boolean(activePageViewId) || navigationHistory.index > 0,
       canGoForward:
         !activePageViewId &&
@@ -941,39 +1054,30 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       goForward: () => moveHistory(1),
       openNote,
       openPageView,
-      createPageView,
-      updatePageView,
-      deletePageView,
+      createPageView: workspace.createPageView,
+      updatePageView: workspace.updatePageView,
       openJournal,
       createPage,
-      deleteNote,
-      importFiles,
-      saveNow,
     }),
     [
-      workspacePath,
-      notes,
+      workspace.notes,
+      workspace.createPageView,
+      workspace.updatePageView,
       note?.id,
       activePageViewId,
-      customPageViews,
+      activePageView,
       navigationHistory,
       moveHistory,
       openNote,
       openPageView,
-      createPageView,
-      updatePageView,
-      deletePageView,
       openJournal,
       createPage,
-      deleteNote,
-      importFiles,
-      saveNow,
     ],
   );
 
   const editorRuntime = useMemo<EditorRuntimeContextValue>(
     () => ({
-      notes,
+      notes: workspace.notes,
       noteId: note?.id ?? null,
       focusRequest,
       draft: () => draftRef.current,
@@ -983,7 +1087,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       reportError: setError,
     }),
     [
-      notes,
+      workspace.notes,
       note?.id,
       focusRequest,
       updateDraft,
@@ -991,6 +1095,23 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       followWikiLink,
     ],
   );
+
+  const title = activePageView
+    ? activePageView.name
+    : draft.title.trim() || "New Tab";
+
+  useEffect(() => {
+    publishTabInfo(tabId, { ...navigation, title, status, saveNow });
+    return () => removeTabInfo(tabId);
+  }, [
+    tabId,
+    navigation,
+    title,
+    status,
+    saveNow,
+    publishTabInfo,
+    removeTabInfo,
+  ]);
 
   return (
     <NavigationContext.Provider value={navigation}>
@@ -1003,14 +1124,14 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
 export function useNotes(): NotesContextValue {
   const context = useContext(NotesContext);
-  if (!context) throw new Error("useNotes must be used inside NotesProvider.");
+  if (!context) throw new Error("useNotes must be used inside TabProvider.");
   return context;
 }
 
 export function useNavigation(): NavigationContextValue {
   const context = useContext(NavigationContext);
   if (!context) {
-    throw new Error("useNavigation must be used inside NotesProvider.");
+    throw new Error("useNavigation must be used inside TabProvider.");
   }
   return context;
 }
@@ -1018,7 +1139,7 @@ export function useNavigation(): NavigationContextValue {
 export function useEditorRuntime(): EditorRuntimeContextValue {
   const context = useContext(EditorRuntimeContext);
   if (!context) {
-    throw new Error("useEditorRuntime must be used inside NotesProvider.");
+    throw new Error("useEditorRuntime must be used inside TabProvider.");
   }
   return context;
 }

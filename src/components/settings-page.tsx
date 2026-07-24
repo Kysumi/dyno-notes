@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useNavigation, useNotes } from "@/components/notes-provider.tsx";
+import { useWorkspace } from "@/components/notes-provider.tsx";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -294,7 +294,7 @@ function AppearanceSettingsPanel({
 }
 
 function ImportSettingsPanel() {
-  const { importFiles } = useNavigation();
+  const { importFiles } = useWorkspace();
   const [files, setFiles] = useState<File[]>([]);
   const [failures, setFailures] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
@@ -364,7 +364,7 @@ function TrashSettingsPanel() {
     refreshTrash,
     restoreTrash,
     deleteTrash,
-  } = useNotes();
+  } = useWorkspace();
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 

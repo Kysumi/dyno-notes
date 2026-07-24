@@ -13,7 +13,12 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useNavigation } from "@/components/notes-provider.tsx";
+import { useWorkspace } from "@/components/notes-provider.tsx";
+import { TabsStrip } from "@/components/tabs-strip.tsx";
+import {
+  useActiveTabNavigation,
+  useTabs,
+} from "@/components/tabs-provider.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   CommandDialog,
@@ -70,8 +75,8 @@ function CommandPalette({
   onOpenHelp(): Promise<boolean>;
   onOpenSettings(): Promise<boolean>;
 }) {
-  const { notes, openNote, openJournal, openPageView, createPage } =
-    useNavigation();
+  const { notes, createPage } = useWorkspace();
+  const { openNewTab } = useTabs();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -173,11 +178,8 @@ function CommandPalette({
               value="Today"
               keywords={["journal", "daily note"]}
               onSelect={() => {
-                void openJournal(dateValue()).then((opened) => {
-                  if (!opened) return;
-                  close();
-                  focusEditor();
-                });
+                openNewTab({ noteId: `journals/${dateValue()}.md` });
+                close();
               }}
             >
               <CalendarDays />
@@ -187,9 +189,8 @@ function CommandPalette({
               value="Open tasks"
               keywords={["todo", "view"]}
               onSelect={() => {
-                void openPageView("open-tasks").then((opened) => {
-                  if (opened) close();
-                });
+                openNewTab({ pageViewId: "open-tasks" });
+                close();
               }}
             >
               <ListTodo />
@@ -228,9 +229,8 @@ function CommandPalette({
                   value={page.id}
                   keywords={[page.title, page.excerpt]}
                   onSelect={() => {
-                    void openNote(page.id).then((opened) => {
-                      if (opened) close();
-                    });
+                    openNewTab({ noteId: page.id });
+                    close();
                   }}
                 >
                   <FileText />
@@ -253,8 +253,10 @@ function CommandPalette({
               <CommandItem
                 value={`Create new page ${title}`}
                 onSelect={() => {
-                  void createPage(title).then((created) => {
-                    if (created) close();
+                  void createPage(title).then((file) => {
+                    if (!file) return;
+                    openNewTab({ noteId: file.id });
+                    close();
                   });
                 }}
               >
@@ -278,7 +280,8 @@ function CommandPalette({
 }
 
 function JournalCalendar({ date }: { date: string }) {
-  const { notes, openJournal } = useNavigation();
+  const { notes } = useWorkspace();
+  const { openJournal } = useActiveTabNavigation();
   const today = dateValue();
 
   const open = async (value: string) => {
@@ -375,82 +378,86 @@ export function AppHeader({
   onOpenHelp(): Promise<boolean>;
   onOpenSettings(): Promise<boolean>;
 }) {
-  const { canGoBack, canGoForward, goBack, goForward, noteId, workspacePath } =
-    useNavigation();
+  const { canGoBack, canGoForward, goBack, goForward, noteId } =
+    useActiveTabNavigation();
+  const { workspacePath } = useWorkspace();
   const journalDate = journalDateFromId(noteId ?? "");
 
   return (
-    <header className="col-span-full grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-background/95 px-3 [-webkit-app-region:drag] sm:gap-4 lg:grid-cols-[1fr_minmax(26rem,38rem)_1fr]">
-      <div className="flex min-w-0 items-center gap-2 [-webkit-app-region:no-drag]">
-        <span className="grid size-7 place-items-center rounded-lg bg-primary font-serif text-base font-bold text-primary-foreground">
-          D
-        </span>
-        <span className="hidden font-semibold tracking-tight sm:inline">
-          Dyno Notes
-        </span>
-        <div
-          className={
-            journalDate
-              ? "ml-1 hidden items-center sm:flex"
-              : "ml-1 flex items-center"
-          }
-        >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Go back"
-                disabled={!canGoBack}
-                onClick={() => void goBack()}
-              >
-                <ArrowLeft />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Back</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Go forward"
-                disabled={!canGoForward}
-                onClick={() => void goForward()}
-              >
-                <ArrowRight />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Forward</TooltipContent>
-          </Tooltip>
+    <header className="col-span-full flex flex-col border-b bg-background/95 [-webkit-app-region:drag]">
+      <TabsStrip />
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1.5 [-webkit-app-region:drag] sm:gap-4 lg:grid-cols-[1fr_minmax(26rem,38rem)_1fr]">
+        <div className="flex min-w-0 items-center gap-2 [-webkit-app-region:no-drag]">
+          <span className="grid size-7 place-items-center rounded-lg bg-primary font-serif text-base font-bold text-primary-foreground">
+            D
+          </span>
+          <span className="hidden font-semibold tracking-tight sm:inline">
+            Dyno Notes
+          </span>
+          <div
+            className={
+              journalDate
+                ? "ml-1 hidden items-center sm:flex"
+                : "ml-1 flex items-center"
+            }
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Go back"
+                  disabled={!canGoBack}
+                  onClick={() => void goBack()}
+                >
+                  <ArrowLeft />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Back</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Go forward"
+                  disabled={!canGoForward}
+                  onClick={() => void goForward()}
+                >
+                  <ArrowRight />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Forward</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-      </div>
 
-      {journalDate ? (
-        <JournalCalendar date={journalDate} />
-      ) : (
-        <CommandPalette
-          onOpenHelp={onOpenHelp}
-          onOpenSettings={onOpenSettings}
-        />
-      )}
-
-      {journalDate ? (
-        <div className="flex items-center justify-end gap-2 [-webkit-app-region:no-drag]">
+        {journalDate ? (
+          <JournalCalendar date={journalDate} />
+        ) : (
           <CommandPalette
-            compact
             onOpenHelp={onOpenHelp}
             onOpenSettings={onOpenSettings}
           />
-        </div>
-      ) : (
-        <p
-          className="truncate text-right font-mono text-[10px] text-muted-foreground"
-          title={workspacePath}
-        >
-          {workspacePath}
-        </p>
-      )}
+        )}
+
+        {journalDate ? (
+          <div className="flex items-center justify-end gap-2 [-webkit-app-region:no-drag]">
+            <CommandPalette
+              compact
+              onOpenHelp={onOpenHelp}
+              onOpenSettings={onOpenSettings}
+            />
+          </div>
+        ) : (
+          <p
+            className="truncate text-right font-mono text-[10px] text-muted-foreground"
+            title={workspacePath}
+          >
+            {workspacePath}
+          </p>
+        )}
+      </div>
     </header>
   );
 }

@@ -3,11 +3,10 @@ import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/app-header.tsx";
 import { AppSidebar } from "@/components/app-sidebar.tsx";
 import { HelpPage } from "@/components/help-page.tsx";
-import { NoteEditor } from "@/components/note-editor.tsx";
-import { NotesProvider, useNavigation } from "@/components/notes-provider.tsx";
-import { PageContext } from "@/components/page-context.tsx";
-import { PageView } from "@/components/page-view.tsx";
+import { WorkspaceProvider } from "@/components/notes-provider.tsx";
 import { SettingsPage } from "@/components/settings-page.tsx";
+import { TabsProvider, useTabs } from "@/components/tabs-provider.tsx";
+import { TabsView } from "@/components/tabs-view.tsx";
 import { Toaster } from "@/components/ui/sonner.tsx";
 import { TooltipProvider } from "@/components/ui/tooltip.tsx";
 import {
@@ -32,45 +31,45 @@ function AppContent({
   onPathChange(path: string): void;
   onSaveAppearance(settings: AppearanceSettings): boolean;
 }) {
-  const { activePageView, saveNow } = useNavigation();
+  const { flushAll } = useTabs();
 
   const openAppPage = async (nextPath: string) => {
-    if (!(await saveNow())) return false;
+    if (!(await flushAll())) return false;
     history.pushState({ dynoPage: true }, "", nextPath);
     onPathChange(nextPath);
     return true;
   };
 
-  if (path === HELP_PATH) return <HelpPage onClose={onClosePage} />;
-  if (path === SETTINGS_PATH) {
-    return (
-      <SettingsPage
-        appearance={appearance}
-        onClose={onClosePage}
-        onSave={onSaveAppearance}
-      />
-    );
-  }
-
   return (
-    <div className="grid h-screen grid-cols-1 grid-rows-[3.25rem_minmax(0,1fr)] overflow-hidden bg-background text-foreground md:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
-      <AppHeader
-        onOpenHelp={() => openAppPage(HELP_PATH)}
-        onOpenSettings={() => openAppPage(SETTINGS_PATH)}
-      />
-      <AppSidebar
-        onOpenHelp={() => void openAppPage(HELP_PATH)}
-        onOpenSettings={() => void openAppPage(SETTINGS_PATH)}
-      />
-      {activePageView ? (
-        <PageView key={activePageView.id} view={activePageView} />
-      ) : (
-        <>
-          <NoteEditor />
-          <PageContext />
-        </>
-      )}
-    </div>
+    <>
+      {/* Tabs must stay mounted behind Settings/Help so switching pages never
+          drops a tab's draft, navigation history, or TipTap instance. */}
+      <div
+        className={
+          path === "/"
+            ? "grid h-screen grid-rows-[auto_minmax(0,1fr)] grid-cols-1 overflow-hidden bg-background text-foreground md:grid-cols-[14rem_minmax(0,1fr)]"
+            : "hidden"
+        }
+      >
+        <AppHeader
+          onOpenHelp={() => openAppPage(HELP_PATH)}
+          onOpenSettings={() => openAppPage(SETTINGS_PATH)}
+        />
+        <AppSidebar
+          onOpenHelp={() => void openAppPage(HELP_PATH)}
+          onOpenSettings={() => void openAppPage(SETTINGS_PATH)}
+        />
+        <TabsView />
+      </div>
+      {path === HELP_PATH ? <HelpPage onClose={onClosePage} /> : null}
+      {path === SETTINGS_PATH ? (
+        <SettingsPage
+          appearance={appearance}
+          onClose={onClosePage}
+          onSave={onSaveAppearance}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -115,15 +114,17 @@ function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
   return (
     <>
       <TooltipProvider>
-        <NotesProvider>
-          <AppContent
-            appearance={appearance}
-            path={path}
-            onClosePage={closeAppPage}
-            onPathChange={setPath}
-            onSaveAppearance={saveAppearance}
-          />
-        </NotesProvider>
+        <WorkspaceProvider>
+          <TabsProvider>
+            <AppContent
+              appearance={appearance}
+              path={path}
+              onClosePage={closeAppPage}
+              onPathChange={setPath}
+              onSaveAppearance={saveAppearance}
+            />
+          </TabsProvider>
+        </WorkspaceProvider>
       </TooltipProvider>
       <Toaster theme={appearance.scheme} position="bottom-right" />
     </>
