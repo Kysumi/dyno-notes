@@ -52,3 +52,9 @@ deno task check
 Linting is [oxlint](https://oxc.rs/docs/guide/usage/linter.html) and
 formatting is [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html)
 (`deno task lint`, `deno task fmt`). See [AGENTS.md](AGENTS.md) for the rules.
+
+## Building
+
+```sh
+deno desktop --target aarch64-apple-darwin --output temp/dyno-notes.dmg main.ts
+```

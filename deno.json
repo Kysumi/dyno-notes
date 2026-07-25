@@ -30,13 +30,14 @@
     }
   },
   "desktop": {
+    "backend": "webview",
     "app": {
       "name": "Dyno Notes",
       "identifier": "com.dynonotes.app"
     },
     "output": {
-      "macos": "./build/Dyno Notes.app",
-      "windows": "./build/Dyno Notes",
+      "macos": "./build/DynoNotes.app",
+      "windows": "./build/DynoNotes",
       "linux": "./build/dyno-notes.AppImage"
     }
   },
