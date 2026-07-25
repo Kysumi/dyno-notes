@@ -1,6 +1,7 @@
 import { deepStrictEqual, equal, match, ok, rejects } from "node:assert/strict";
 
 import { AppError, hashBytes, slugify, Workspace, writeAll } from "./host.ts";
+import { DEFAULT_APP_SETTINGS } from "./lib/contracts.ts";
 
 async function fixture(
   run: (workspace: Workspace, root: string) => Promise<void>,
@@ -394,3 +395,19 @@ Deno.test("hashes are stable lowercase SHA-256", async () => {
     await hashBytes(new TextEncoder().encode("dyno")),
   );
 });
+
+Deno.test("notification settings default to enabled and persist disabled", () =>
+  fixture(async (workspace) => {
+    deepStrictEqual(await workspace.readSettings(), DEFAULT_APP_SETTINGS);
+    deepStrictEqual(
+      await workspace.saveSettings({
+        notificationsEnabled: false,
+        dueSoonHours: 48,
+      }),
+      { notificationsEnabled: false, dueSoonHours: 48 },
+    );
+    deepStrictEqual(await workspace.readSettings(), {
+      notificationsEnabled: false,
+      dueSoonHours: 48,
+    });
+  }));

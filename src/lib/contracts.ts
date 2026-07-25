@@ -56,11 +56,21 @@ export interface TaskRecord {
 }
 
 export interface AppSettings {
+  /** Whether Dyno Notes may send desktop notifications. */
+  notificationsEnabled: boolean;
   /** Hours before a task's deadline to treat it as "due soon". */
   dueSoonHours: number;
 }
 
-export const DEFAULT_APP_SETTINGS: AppSettings = { dueSoonHours: 24 };
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  notificationsEnabled: true,
+  dueSoonHours: 24,
+};
+
+export interface AppConfigInfo {
+  notesPath: string | null;
+  suggestedPath: string;
+}
 
 export interface DesktopBindings {
   workspaceInfo(): Promise<{ path: string }>;
@@ -91,6 +101,8 @@ export interface DesktopBindings {
   tasksList(): Promise<TaskRecord[]>;
   settingsGet(): Promise<AppSettings>;
   settingsSave(input: AppSettings): Promise<AppSettings>;
+  appConfigGet(): Promise<AppConfigInfo>;
+  appConfigSet(input: { notesPath: string }): Promise<{ notesPath: string }>;
 }
 
 declare global {

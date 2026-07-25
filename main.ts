@@ -3,7 +3,7 @@
 import { existsSync } from "node:fs";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
 
-import { AppError, Workspace } from "./src/host.ts";
+import { AppError, resolveHomeDir, Workspace } from "./src/host.ts";
 import { rejectInvalidApiRequest } from "./src/lib/api-request.ts";
 import { base64ToBytes } from "./src/lib/base64.ts";
 import { deadlineTimestamp, formatDeadline } from "./src/lib/dates.ts";
@@ -47,19 +47,57 @@ const contentTypes: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
+interface AppConfig {
+  notesPath: string;
+}
+
+function appConfigPath(): string {
+  return join(resolveHomeDir(), ".dyno-notes.json");
+}
+
+function readAppConfig(): AppConfig | null {
+  try {
+    const parsed = JSON.parse(Deno.readTextFileSync(appConfigPath()));
+    return typeof parsed?.notesPath === "string" && parsed.notesPath
+      ? { notesPath: parsed.notesPath }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeAppConfig(config: AppConfig): void {
+  Deno.writeTextFileSync(appConfigPath(), JSON.stringify(config));
+}
+
+function expandNotesPath(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed === "~") return resolveHomeDir();
+  if (trimmed.startsWith("~/")) {
+    return join(resolveHomeDir(), trimmed.slice(2));
+  }
+  return trimmed;
+}
+
 let startupError: AppError | undefined;
-const workspacePromise = Promise.resolve()
-  .then(() => Workspace.open())
-  .catch((error) => {
-    console.error("Workspace startup failed", error);
-    startupError =
-      error instanceof AppError
-        ? error
-        : new AppError(
-            "WorkspaceUnavailable",
-            "The Dyno Notes workspace could not be opened.",
-          );
-  });
+let resolveWorkspacePromise: ((workspace: Workspace) => void) | undefined;
+
+const existingConfig = readAppConfig();
+const workspacePromise: Promise<Workspace | undefined> = existingConfig
+  ? Workspace.open(existingConfig.notesPath).catch((error) => {
+      console.error("Workspace startup failed", error);
+      startupError =
+        error instanceof AppError
+          ? error
+          : new AppError(
+              "WorkspaceUnavailable",
+              "The Dyno Notes workspace could not be opened.",
+            );
+      return undefined;
+    })
+  : new Promise<Workspace>((resolve) => {
+      resolveWorkspacePromise = resolve;
+    });
 
 async function requireWorkspace(): Promise<Workspace> {
   const workspace = await workspacePromise;
@@ -105,6 +143,26 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
   settingsGet: async () => (await requireWorkspace()).readSettings(),
   settingsSave: async (input: Parameters<Workspace["saveSettings"]>[0]) =>
     (await requireWorkspace()).saveSettings(input),
+  appConfigGet: async () => ({
+    notesPath: existingConfig?.notesPath ?? null,
+    suggestedPath: join(resolveHomeDir(), "Dyno Notes"),
+  }),
+  appConfigSet: async (input: { notesPath: string }) => {
+    const expanded = expandNotesPath(input.notesPath ?? "");
+    if (!expanded) {
+      throw new AppError("InvalidInput", "Choose a folder for your notes.");
+    }
+    if (!isAbsolute(expanded)) {
+      throw new AppError(
+        "InvalidInput",
+        "Enter an absolute folder path (e.g. /Users/you/Notes).",
+      );
+    }
+    const workspace = await Workspace.open(expanded);
+    writeAppConfig({ notesPath: workspace.path });
+    resolveWorkspacePromise?.(workspace);
+    return { notesPath: workspace.path };
+  },
   windowReadyToClose: async () => {
     allowingClose = true;
     watcher?.close();
@@ -162,8 +220,9 @@ async function ensureNotificationPermission(): Promise<boolean> {
 
 async function checkTaskDeadlines(): Promise<void> {
   const workspace = await workspacePromise;
-  if (!workspace || !(await ensureNotificationPermission())) return;
-  const { dueSoonHours } = await workspace.readSettings();
+  if (!workspace) return;
+  const { dueSoonHours, notificationsEnabled } = await workspace.readSettings();
+  if (!notificationsEnabled || !(await ensureNotificationPermission())) return;
   const windowMs = dueSoonHours * 60 * 60 * 1000;
   const now = Date.now();
   for (const task of workspace.tasks()) {

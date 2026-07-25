@@ -34,6 +34,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card.tsx";
+import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
@@ -169,6 +170,85 @@ function AppearancePreview({ settings }: { settings: AppearanceSettings }) {
   );
 }
 
+export function AppearanceFields({
+  settings,
+  onChange,
+}: {
+  settings: AppearanceSettings;
+  onChange(settings: AppearanceSettings): void;
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="gap-5 shadow-none">
+        <CardHeader>
+          <CardTitle>Color scheme</CardTitle>
+          <CardDescription>
+            Choose a light level or follow your device.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-3">
+          {schemes.map(({ id, name, description, icon: Icon }) => (
+            <Button
+              key={id}
+              type="button"
+              variant="outline"
+              aria-pressed={settings.scheme === id}
+              className={cn(
+                "h-auto items-start justify-start gap-3 whitespace-normal p-3 text-left",
+                settings.scheme === id &&
+                  "border-primary bg-primary/5 ring-2 ring-primary/20",
+              )}
+              onClick={() => onChange({ ...settings, scheme: id })}
+            >
+              <Icon className="mt-0.5 size-4" />
+              <span>
+                <span className="block font-medium">{name}</span>
+                <span className="block text-xs font-normal text-muted-foreground">
+                  {description}
+                </span>
+              </span>
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="gap-5 shadow-none">
+        <CardHeader>
+          <CardTitle>Colorway</CardTitle>
+          <CardDescription>
+            Pick the accent used for actions, links, and focus.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-2">
+          {colorways.map(({ id, name, swatch }) => (
+            <Button
+              key={id}
+              type="button"
+              variant="outline"
+              aria-pressed={settings.colorway === id}
+              className={cn(
+                "h-11 justify-start px-3",
+                settings.colorway === id &&
+                  "border-primary bg-primary/5 ring-2 ring-primary/20",
+              )}
+              onClick={() => onChange({ ...settings, colorway: id })}
+            >
+              <span
+                className={cn(
+                  "size-5 rounded-full ring-1 ring-black/10",
+                  swatch,
+                )}
+              />
+              <span>{name}</span>
+              {settings.colorway === id ? <Check className="ml-auto" /> : null}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function AppearanceSettingsPanel({
   saveStatus,
   settings,
@@ -195,76 +275,7 @@ function AppearanceSettingsPanel({
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="space-y-6">
-          <Card className="gap-5 shadow-none">
-            <CardHeader>
-              <CardTitle>Color scheme</CardTitle>
-              <CardDescription>
-                Choose a light level or follow your device.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2 sm:grid-cols-3">
-              {schemes.map(({ id, name, description, icon: Icon }) => (
-                <Button
-                  key={id}
-                  type="button"
-                  variant="outline"
-                  aria-pressed={settings.scheme === id}
-                  className={cn(
-                    "h-auto items-start justify-start gap-3 whitespace-normal p-3 text-left",
-                    settings.scheme === id &&
-                      "border-primary bg-primary/5 ring-2 ring-primary/20",
-                  )}
-                  onClick={() => onChange({ ...settings, scheme: id })}
-                >
-                  <Icon className="mt-0.5 size-4" />
-                  <span>
-                    <span className="block font-medium">{name}</span>
-                    <span className="block text-xs font-normal text-muted-foreground">
-                      {description}
-                    </span>
-                  </span>
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="gap-5 shadow-none">
-            <CardHeader>
-              <CardTitle>Colorway</CardTitle>
-              <CardDescription>
-                Pick the accent used for actions, links, and focus.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2 sm:grid-cols-2">
-              {colorways.map(({ id, name, swatch }) => (
-                <Button
-                  key={id}
-                  type="button"
-                  variant="outline"
-                  aria-pressed={settings.colorway === id}
-                  className={cn(
-                    "h-11 justify-start px-3",
-                    settings.colorway === id &&
-                      "border-primary bg-primary/5 ring-2 ring-primary/20",
-                  )}
-                  onClick={() => onChange({ ...settings, colorway: id })}
-                >
-                  <span
-                    className={cn(
-                      "size-5 rounded-full ring-1 ring-black/10",
-                      swatch,
-                    )}
-                  />
-                  <span>{name}</span>
-                  {settings.colorway === id ? (
-                    <Check className="ml-auto" />
-                  ) : null}
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+        <AppearanceFields settings={settings} onChange={onChange} />
 
         <div className="space-y-3 lg:sticky lg:top-6">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
@@ -298,6 +309,7 @@ function AppearanceSettingsPanel({
 
 function NotificationsSettingsPanel() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [draftHours, setDraftHours] = useState("");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">(
     "idle",
@@ -311,6 +323,7 @@ function NotificationsSettingsPanel() {
       .then((result) => {
         if (cancelled) return;
         setSettings(result);
+        setNotificationsEnabled(result.notificationsEnabled);
         setDraftHours(String(result.dueSoonHours));
       })
       .catch(() => {
@@ -322,14 +335,20 @@ function NotificationsSettingsPanel() {
   }, []);
 
   const save = async () => {
+    if (!settings) return;
     const hours = Number(draftHours);
-    if (!Number.isFinite(hours) || hours < 1 || hours > 168) {
+    const hoursValid = Number.isFinite(hours) && hours >= 1 && hours <= 168;
+    if (notificationsEnabled && !hoursValid) {
       setSaveStatus("error");
       return;
     }
     try {
-      const saved = await desktop.settingsSave({ dueSoonHours: hours });
+      const saved = await desktop.settingsSave({
+        notificationsEnabled,
+        dueSoonHours: hoursValid ? hours : settings.dueSoonHours,
+      });
       setSettings(saved);
+      setNotificationsEnabled(saved.notificationsEnabled);
       setDraftHours(String(saved.dueSoonHours));
       setSaveStatus("saved");
     } catch {
@@ -361,26 +380,50 @@ function NotificationsSettingsPanel() {
       ) : (
         <Card className="gap-5 shadow-none">
           <CardHeader>
-            <CardTitle>Due soon window</CardTitle>
+            <CardTitle>Desktop notifications</CardTitle>
             <CardDescription>
-              Notify me this many hours before a task's deadline (1–168).
+              Turn off notifications entirely, or choose when they appear.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center gap-3">
-            <Input
-              type="number"
-              min={1}
-              max={168}
-              value={draftHours}
-              onChange={(event) => {
-                setDraftHours(event.target.value);
-                setSaveStatus("idle");
-              }}
-              className="w-24"
-              aria-label="Due soon window in hours"
-              disabled={!settings}
-            />
-            <span className="text-sm text-muted-foreground">hours</span>
+          <CardContent className="space-y-5">
+            <label
+              htmlFor="notifications-enabled"
+              className="flex items-start gap-3"
+            >
+              <Checkbox
+                id="notifications-enabled"
+                checked={notificationsEnabled}
+                onCheckedChange={(checked) => {
+                  setNotificationsEnabled(checked === true);
+                  setSaveStatus("idle");
+                }}
+                disabled={!settings}
+              />
+              <span className="grid gap-1 text-sm">
+                <span className="font-medium">Allow desktop notifications</span>
+                <span className="text-muted-foreground">
+                  Notify me about open tasks that are due soon or overdue.
+                </span>
+              </span>
+            </label>
+            <div className="flex items-center gap-3 border-t pt-5">
+              <Input
+                type="number"
+                min={1}
+                max={168}
+                value={draftHours}
+                onChange={(event) => {
+                  setDraftHours(event.target.value);
+                  setSaveStatus("idle");
+                }}
+                className="w-24"
+                aria-label="Due soon window in hours"
+                disabled={!settings || !notificationsEnabled}
+              />
+              <span className="text-sm text-muted-foreground">
+                hours before a deadline
+              </span>
+            </div>
           </CardContent>
         </Card>
       )}

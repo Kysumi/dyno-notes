@@ -55,6 +55,17 @@ export class AppError extends Error {
   }
 }
 
+export function resolveHomeDir(): string {
+  const home = Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE");
+  if (!home) {
+    throw new AppError(
+      "WorkspaceUnavailable",
+      "The operating-system home directory could not be resolved.",
+    );
+  }
+  return home;
+}
+
 interface IndexedNote {
   summary: NoteSummary;
   markdown: IndexedMarkdown;
@@ -222,17 +233,7 @@ export class Workspace {
   }
 
   static async open(path?: string): Promise<Workspace> {
-    let root = path;
-    if (!root) {
-      const home = Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE");
-      if (!home) {
-        throw new AppError(
-          "WorkspaceUnavailable",
-          "The operating-system home directory could not be resolved.",
-        );
-      }
-      root = join(home, "Dyno Notes");
-    }
+    const root = path ?? join(resolveHomeDir(), "Dyno Notes");
 
     try {
       await Deno.mkdir(join(root, "pages"), { recursive: true });
@@ -490,7 +491,10 @@ export class Workspace {
     try {
       const bytes = await Deno.readFile(join(this.path, SETTINGS_FILE));
       const parsed = JSON.parse(strictText(bytes));
-      return { dueSoonHours: clampDueSoonHours(parsed?.dueSoonHours) };
+      return {
+        notificationsEnabled: parsed?.notificationsEnabled !== false,
+        dueSoonHours: clampDueSoonHours(parsed?.dueSoonHours),
+      };
     } catch {
       return DEFAULT_APP_SETTINGS;
     }
@@ -498,6 +502,9 @@ export class Workspace {
 
   async saveSettings(input: unknown): Promise<AppSettings> {
     const settings: AppSettings = {
+      notificationsEnabled:
+        (input as Partial<AppSettings> | null | undefined)
+          ?.notificationsEnabled !== false,
       dueSoonHours: clampDueSoonHours(
         (input as Partial<AppSettings> | null | undefined)?.dueSoonHours,
       ),

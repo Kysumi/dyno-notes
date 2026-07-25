@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/app-header.tsx";
 import { AppSidebar } from "@/components/app-sidebar.tsx";
 import { HelpPage } from "@/components/help-page.tsx";
 import { WorkspaceProvider } from "@/components/notes-provider.tsx";
+import { Onboarding } from "@/components/onboarding.tsx";
 import { SettingsPage } from "@/components/settings-page.tsx";
 import { TabsProvider, useTabs } from "@/components/tabs-provider.tsx";
 import { TabsView } from "@/components/tabs-view.tsx";
@@ -14,6 +15,8 @@ import {
   applyAppearanceSettings,
   saveAppearanceSettings,
 } from "@/lib/appearance.ts";
+import type { AppConfigInfo } from "@/lib/contracts.ts";
+import { desktop } from "@/lib/desktop.ts";
 
 const SETTINGS_PATH = "/settings";
 const HELP_PATH = "/help";
@@ -76,6 +79,17 @@ function AppContent({
 function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
   const [path, setPath] = useState(location.pathname);
   const [appearance, setAppearance] = useState(initialAppearance);
+  const [appConfig, setAppConfig] = useState<AppConfigInfo | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void desktop.appConfigGet().then((config) => {
+      if (!cancelled) setAppConfig(config);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const updatePath = () => setPath(location.pathname);
@@ -110,6 +124,24 @@ function App({ initialAppearance }: { initialAppearance: AppearanceSettings }) {
       return false;
     }
   };
+
+  if (!appConfig) return null;
+
+  if (!appConfig.notesPath) {
+    return (
+      <>
+        <Onboarding
+          initialAppearance={appearance}
+          suggestedPath={appConfig.suggestedPath}
+          onSaveAppearance={saveAppearance}
+          onComplete={(notesPath) =>
+            setAppConfig((current) => ({ ...current!, notesPath }))
+          }
+        />
+        <Toaster theme={appearance.scheme} position="bottom-right" />
+      </>
+    );
+  }
 
   return (
     <>

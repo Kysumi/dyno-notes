@@ -54,4 +54,6 @@ export const desktop: DesktopBindings = {
   tasksList: () => call("tasksList", []),
   settingsGet: () => call("settingsGet", []),
   settingsSave: (input) => call("settingsSave", [input]),
+  appConfigGet: () => call("appConfigGet", []),
+  appConfigSet: (input) => call("appConfigSet", [input]),
 };
