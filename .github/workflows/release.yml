@@ -33,7 +33,7 @@ jobs:
           deno-version: 2.9.3
           cache: true
       - run: deno task build
-      - run: deno desktop -P=desktop --target ${{ matrix.target }} --output "${{ matrix.output }}" main.ts
+      - run: deno desktop --include dist -P=desktop --target ${{ matrix.target }} --output "${{ matrix.output }}" main.ts
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
