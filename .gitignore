@@ -3,3 +3,6 @@ build/
 dist/
 
 node_modules
+
+temp
+.DS_STORE
