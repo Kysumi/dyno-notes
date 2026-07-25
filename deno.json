@@ -30,7 +30,7 @@
     }
   },
   "desktop": {
-    "backend": "cef",
+    "backend": "webview",
     "app": {
       "name": "Dyno Notes",
       "identifier": "com.dynonotes.app"
