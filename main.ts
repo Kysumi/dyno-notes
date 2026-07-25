@@ -195,7 +195,7 @@ void workspacePromise.then((workspace) => {
 setInterval(() => void checkTaskDeadlines(), 30 * 60 * 1000);
 
 async function serve(request: Request): Promise<Response> {
-  const dist = resolve(Deno.cwd(), "dist");
+  const dist = resolve(import.meta.dirname!, "dist");
   let pathname: string;
   try {
     pathname = decodeURIComponent(new URL(request.url).pathname);

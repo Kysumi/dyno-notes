@@ -9,7 +9,7 @@
     "fmt": "deno run -A npm:oxfmt@0.60.0",
     "fmt:check": "deno run -A npm:oxfmt@0.60.0 --check",
     "check": "deno check main.ts src/main.tsx && deno task lint && deno task fmt:check && deno task test && deno task build",
-    "desktop": "deno task build && deno desktop -P=desktop main.ts",
+    "desktop": "deno task build && deno desktop --include dist -P=desktop main.ts",
     "desktop:dev": "deno desktop -P=desktop --hmr main.ts"
   },
   "compilerOptions": {
@@ -30,7 +30,7 @@
     }
   },
   "desktop": {
-    "backend": "webview",
+    "backend": "cef",
     "app": {
       "name": "Dyno Notes",
       "identifier": "com.dynonotes.app"

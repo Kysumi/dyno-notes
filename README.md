@@ -56,5 +56,6 @@ formatting is [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html)
 ## Building
 
 ```sh
-deno desktop --target aarch64-apple-darwin --output temp/dyno-notes.dmg main.ts
+deno task build
+deno desktop --include dist --target aarch64-apple-darwin --output temp/dyno-notes.dmg main.ts
 ```
