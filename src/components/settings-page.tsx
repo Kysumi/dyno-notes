@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  BellRing,
   Check,
   Download,
   FileText,
@@ -38,9 +39,11 @@ import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
 import type { AppearanceSettings, ColorScheme } from "@/lib/appearance.ts";
 import { colorways } from "@/lib/appearance.ts";
+import type { AppSettings } from "@/lib/contracts.ts";
+import { desktop } from "@/lib/desktop.ts";
 import { cn } from "@/lib/utils.ts";
 
-type SettingsSection = "appearance" | "import" | "trash";
+type SettingsSection = "appearance" | "notifications" | "import" | "trash";
 
 const deletedAtFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -288,6 +291,119 @@ function AppearanceSettingsPanel({
               : null}
         </span>
         <Button onClick={onSave}>Save changes</Button>
+      </div>
+    </div>
+  );
+}
+
+function NotificationsSettingsPanel() {
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [draftHours, setDraftHours] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">(
+    "idle",
+  );
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void desktop
+      .settingsGet()
+      .then((result) => {
+        if (cancelled) return;
+        setSettings(result);
+        setDraftHours(String(result.dueSoonHours));
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const save = async () => {
+    const hours = Number(draftHours);
+    if (!Number.isFinite(hours) || hours < 1 || hours > 168) {
+      setSaveStatus("error");
+      return;
+    }
+    try {
+      const saved = await desktop.settingsSave({ dueSoonHours: hours });
+      setSettings(saved);
+      setDraftHours(String(saved.dueSoonHours));
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-8 p-6 sm:p-10">
+      <div>
+        <p className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-widest text-primary uppercase">
+          <BellRing className="size-4" /> Stay on schedule
+        </p>
+        <h1 className="font-serif text-3xl font-semibold tracking-tight">
+          Notifications
+        </h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+          Dyno Notes sends a desktop notification for open tasks with a
+          deadline, once they are due soon or overdue.
+        </p>
+      </div>
+
+      {loadError ? (
+        <Card className="border-destructive/40 shadow-none" role="alert">
+          <CardContent className="text-sm text-destructive">
+            Notification settings could not be loaded.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="gap-5 shadow-none">
+          <CardHeader>
+            <CardTitle>Due soon window</CardTitle>
+            <CardDescription>
+              Notify me this many hours before a task's deadline (1–168).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center gap-3">
+            <Input
+              type="number"
+              min={1}
+              max={168}
+              value={draftHours}
+              onChange={(event) => {
+                setDraftHours(event.target.value);
+                setSaveStatus("idle");
+              }}
+              className="w-24"
+              aria-label="Due soon window in hours"
+              disabled={!settings}
+            />
+            <span className="text-sm text-muted-foreground">hours</span>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex items-center justify-end gap-3 border-t pt-6">
+        <span
+          className={cn(
+            "text-sm",
+            saveStatus === "error"
+              ? "text-destructive"
+              : "text-muted-foreground",
+          )}
+          role="status"
+        >
+          {saveStatus === "saved"
+            ? "Settings saved"
+            : saveStatus === "error"
+              ? "Enter a number of hours between 1 and 168."
+              : null}
+        </span>
+        <Button onClick={() => void save()} disabled={!settings}>
+          Save changes
+        </Button>
       </div>
     </div>
   );
@@ -590,6 +706,18 @@ export function SettingsPage({
               size="sm"
               className={cn(
                 "justify-start",
+                section === "notifications" &&
+                  "bg-accent text-accent-foreground",
+              )}
+              onClick={() => setSection("notifications")}
+            >
+              <BellRing /> Notifications
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "justify-start",
                 section === "import" && "bg-accent text-accent-foreground",
               )}
               onClick={() => setSection("import")}
@@ -621,6 +749,8 @@ export function SettingsPage({
               onChange={change}
               onSave={save}
             />
+          ) : section === "notifications" ? (
+            <NotificationsSettingsPanel />
           ) : section === "import" ? (
             <ImportSettingsPanel />
           ) : (

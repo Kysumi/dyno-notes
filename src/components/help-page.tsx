@@ -267,14 +267,14 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                 <Separator />
                 <HelpRow title="Set a deadline">
                   <p>
-                    Select the calendar icon in the toolbar while your cursor
-                    is on a task to pick a date and, optionally, a time. Or
-                    type it directly: <Syntax>due:: 2026-08-01</Syntax> or{" "}
+                    Select the calendar icon in the toolbar while your cursor is
+                    on a task to pick a date and, optionally, a time. Or type it
+                    directly: <Syntax>due:: 2026-08-01</Syntax> or{" "}
                     <Syntax>due:: 24/07/2026 14:30</Syntax> in Source mode.
                   </p>
                   <p>
-                    It appears as a Deadline column in Tasks views, and you
-                    get a desktop notification once it is due within a day or
+                    It appears as a Deadline column in Tasks views, and you get
+                    a desktop notification once it is due within a day or
                     overdue.
                   </p>
                 </HelpRow>

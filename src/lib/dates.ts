@@ -53,8 +53,6 @@ function isValidCalendarDate(
   );
 }
 
-export const DEADLINE_SOON_WINDOW_MS = 24 * 60 * 60 * 1000;
-
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const SLASH_DATE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 const TIME = /^(\d{1,2}):(\d{2})$/;
@@ -95,7 +93,8 @@ export function parseDeadlineInput(
 export function deadlineTimestamp(value: string): number {
   const [datePart, timePart] = value.split("T");
   const [year, month, day] = datePart.split("-").map(Number);
-  if (!timePart) return new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
+  if (!timePart)
+    return new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
   const [hour, minute] = timePart.split(":").map(Number);
   return new Date(year, month - 1, day, hour, minute).getTime();
 }

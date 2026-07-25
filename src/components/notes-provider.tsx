@@ -101,6 +101,7 @@ function storedPageViews(): PageViewDefinition[] {
           filters: {
             query: filters.query,
             hasOpenTasks: filters.hasOpenTasks,
+            dueSoon: filters.dueSoon,
             tag: filters.tag,
             attributeKey: filters.attributeKey,
             showAs: filters.showAs === "tasks" ? "tasks" : "pages",

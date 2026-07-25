@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
+import { DEFAULT_APP_SETTINGS } from "@/lib/contracts.ts";
 import type { NoteSummary, TaskRecord } from "@/lib/contracts.ts";
 import { deadlineTimestamp, formatDeadline } from "@/lib/dates.ts";
 import { desktop } from "@/lib/desktop.ts";
@@ -270,6 +271,7 @@ export function viewSummary(
 function queryLabel(filters: PageViewFilters): string {
   const parts: string[] = [];
   if (filters.hasOpenTasks) parts.push(`has open tasks`);
+  if (filters.dueSoon) parts.push(`due soon`);
   if (filters.tag) parts.push(`tag = #${filters.tag}`);
   if (filters.attributeKey)
     parts.push(`has attribute = ${filters.attributeKey}`);
@@ -357,6 +359,9 @@ export function PageView({ view }: { view: PageViewDefinition }) {
   const [tasksLoading, setTasksLoading] = useState(true);
   const [tasksError, setTasksError] = useState(false);
   const [taskRetry, setTaskRetry] = useState(0);
+  const [dueSoonHours, setDueSoonHours] = useState(
+    DEFAULT_APP_SETTINGS.dueSoonHours,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -377,6 +382,19 @@ export function PageView({ view }: { view: PageViewDefinition }) {
       cancelled = true;
     };
   }, [notes, taskRetry]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void desktop
+      .settingsGet()
+      .then((settings) => {
+        if (!cancelled) setDueSoonHours(settings.dueSoonHours);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredNotes = useMemo(() => {
     return notes.filter((note) => {
@@ -405,11 +423,24 @@ export function PageView({ view }: { view: PageViewDefinition }) {
   const filteredTasks = useMemo(() => {
     if (filters.showAs !== "tasks") return [];
     const noteIds = new Set(filteredNotes.map((n) => n.id));
+    const dueSoonBefore = Date.now() + dueSoonHours * 60 * 60 * 1000;
     return allTasks.filter(
       (task) =>
-        noteIds.has(task.noteId) && (!filters.hasOpenTasks || !task.checked),
+        noteIds.has(task.noteId) &&
+        (!filters.hasOpenTasks || !task.checked) &&
+        (!filters.dueSoon ||
+          (!task.checked &&
+            task.deadline !== null &&
+            deadlineTimestamp(task.deadline) <= dueSoonBefore)),
     );
-  }, [allTasks, filteredNotes, filters.showAs, filters.hasOpenTasks]);
+  }, [
+    allTasks,
+    filteredNotes,
+    filters.showAs,
+    filters.hasOpenTasks,
+    filters.dueSoon,
+    dueSoonHours,
+  ]);
 
   const activeColumns = useMemo(
     () =>
@@ -488,7 +519,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
           <p className="overflow-hidden rounded-md border border-primary/15 bg-primary px-3 py-2 font-mono text-xs text-primary-foreground">
             {queryLabel(filters)}
           </p>
-          <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_auto_minmax(10rem,12rem)_minmax(10rem,12rem)_auto]">
+          <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_auto_auto_minmax(10rem,12rem)_minmax(10rem,12rem)_auto]">
             <Input
               value={filters.query}
               onChange={(event) =>
@@ -511,6 +542,17 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               }
             >
               Has Open Tasks
+            </Button>
+            <Button
+              variant={filters.dueSoon ? "default" : "outline"}
+              onClick={() =>
+                changeFilters((curr) => ({
+                  ...curr,
+                  dueSoon: !curr.dueSoon,
+                }))
+              }
+            >
+              Due Soon
             </Button>
             <SearchableSelect
               options={tagOptions}
@@ -547,6 +589,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                 changeFilters(() => ({
                   query: "",
                   hasOpenTasks: false,
+                  dueSoon: false,
                   tag: null,
                   attributeKey: null,
                   showAs: "pages",

@@ -110,9 +110,7 @@ Deno.test("scanner extracts a task deadline from a due:: marker", () => {
 });
 
 Deno.test("scanner accepts a DD/MM/YYYY deadline with a time", () => {
-  const scanned = scanMarkdown(
-    `- [ ] Renew passport due:: 24/07/2026 14:30\n`,
-  );
+  const scanned = scanMarkdown(`- [ ] Renew passport due:: 24/07/2026 14:30\n`);
 
   equal(scanned.tasks[0].deadline, "2026-07-24T14:30");
 });

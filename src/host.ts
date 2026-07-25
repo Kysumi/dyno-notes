@@ -10,6 +10,7 @@ import {
 } from "node:path";
 
 import type {
+  AppSettings,
   Backlink,
   NoteFile,
   NoteId,
@@ -19,6 +20,7 @@ import type {
   TaskRecord,
   TrashEntry,
 } from "./lib/contracts.ts";
+import { DEFAULT_APP_SETTINGS } from "./lib/contracts.ts";
 import {
   type IndexedMarkdown,
   normalizeSearchText,
@@ -30,6 +32,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
 const TEMP_PREFIX = ".dyno-";
 const TEMP_SUFFIX = ".tmp";
 const TRASH_DIRECTORY = ".trash";
+const SETTINGS_FILE = "settings.json";
 const TRASH_ID =
   /^(\d{13})-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -189,6 +192,12 @@ function isManagedId(id: string): boolean {
       id,
     ) && !id.split("/").some((part) => part.startsWith("."))
   );
+}
+
+function clampDueSoonHours(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(168, Math.max(1, Math.round(value)))
+    : DEFAULT_APP_SETTINGS.dueSoonHours;
 }
 
 function bodyExcerpt(text: string, query: string): string {
@@ -475,6 +484,29 @@ export class Workspace {
           deadline: task.deadline,
         })),
     );
+  }
+
+  async readSettings(): Promise<AppSettings> {
+    try {
+      const bytes = await Deno.readFile(join(this.path, SETTINGS_FILE));
+      const parsed = JSON.parse(strictText(bytes));
+      return { dueSoonHours: clampDueSoonHours(parsed?.dueSoonHours) };
+    } catch {
+      return DEFAULT_APP_SETTINGS;
+    }
+  }
+
+  async saveSettings(input: unknown): Promise<AppSettings> {
+    const settings: AppSettings = {
+      dueSoonHours: clampDueSoonHours(
+        (input as Partial<AppSettings> | null | undefined)?.dueSoonHours,
+      ),
+    };
+    await Deno.writeTextFile(
+      join(this.path, SETTINGS_FILE),
+      JSON.stringify(settings),
+    );
+    return settings;
   }
 
   async create(input: {

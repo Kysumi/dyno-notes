@@ -5,11 +5,7 @@ import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { AppError, Workspace } from "./src/host.ts";
 import { rejectInvalidApiRequest } from "./src/lib/api-request.ts";
 import { base64ToBytes } from "./src/lib/base64.ts";
-import {
-  DEADLINE_SOON_WINDOW_MS,
-  deadlineTimestamp,
-  formatDeadline,
-} from "./src/lib/dates.ts";
+import { deadlineTimestamp, formatDeadline } from "./src/lib/dates.ts";
 
 interface DesktopWindow extends EventTarget {
   close(): void;
@@ -105,6 +101,9 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
   notesSearch: async (query: string) =>
     (await requireWorkspace()).search(query),
   tasksList: async () => (await requireWorkspace()).tasks(),
+  settingsGet: async () => (await requireWorkspace()).readSettings(),
+  settingsSave: async (input: Parameters<Workspace["saveSettings"]>[0]) =>
+    (await requireWorkspace()).saveSettings(input),
   windowReadyToClose: async () => {
     allowingClose = true;
     watcher?.close();
@@ -163,11 +162,13 @@ async function ensureNotificationPermission(): Promise<boolean> {
 async function checkTaskDeadlines(): Promise<void> {
   const workspace = await workspacePromise;
   if (!workspace || !(await ensureNotificationPermission())) return;
+  const { dueSoonHours } = await workspace.readSettings();
+  const windowMs = dueSoonHours * 60 * 60 * 1000;
   const now = Date.now();
   for (const task of workspace.tasks()) {
     if (task.checked || !task.deadline || notifiedTasks.has(task.id)) continue;
     const due = deadlineTimestamp(task.deadline);
-    if (due - now > DEADLINE_SOON_WINDOW_MS) continue;
+    if (due - now > windowMs) continue;
     notifiedTasks.add(task.id);
     const notification = new Notification(
       due < now ? "Task overdue" : "Task due soon",

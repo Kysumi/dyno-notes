@@ -54,6 +54,7 @@ Deno.test("view filter changes update only the selected custom view", () => {
       filters: {
         query: "",
         hasOpenTasks: false,
+        dueSoon: false,
         tag: null,
         attributeKey: null,
         showAs: "pages" as const,
@@ -66,6 +67,7 @@ Deno.test("view filter changes update only the selected custom view", () => {
       filters: {
         query: "",
         hasOpenTasks: false,
+        dueSoon: false,
         tag: null,
         attributeKey: null,
         showAs: "pages" as const,

@@ -52,4 +52,6 @@ export const desktop: DesktopBindings = {
   notesBacklinks: (input) => call("notesBacklinks", [input]),
   notesSearch: (query) => call("notesSearch", [query]),
   tasksList: () => call("tasksList", []),
+  settingsGet: () => call("settingsGet", []),
+  settingsSave: (input) => call("settingsSave", [input]),
 };

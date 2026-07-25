@@ -55,6 +55,13 @@ export interface TaskRecord {
   deadline: string | null;
 }
 
+export interface AppSettings {
+  /** Hours before a task's deadline to treat it as "due soon". */
+  dueSoonHours: number;
+}
+
+export const DEFAULT_APP_SETTINGS: AppSettings = { dueSoonHours: 24 };
+
 export interface DesktopBindings {
   workspaceInfo(): Promise<{ path: string }>;
   notesList(): Promise<NoteSummary[]>;
@@ -82,6 +89,8 @@ export interface DesktopBindings {
   }): Promise<Backlink[]>;
   notesSearch(query: string): Promise<SearchResult[]>;
   tasksList(): Promise<TaskRecord[]>;
+  settingsGet(): Promise<AppSettings>;
+  settingsSave(input: AppSettings): Promise<AppSettings>;
 }
 
 declare global {

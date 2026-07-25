@@ -91,11 +91,11 @@ function ToolbarButton({
   active = false,
   onClick,
   children,
-}: {
+  ...props
+}: React.ComponentProps<typeof Button> & {
   label: string;
   active?: boolean;
   onClick(): void;
-  children: React.ReactNode;
 }) {
   return (
     <Button
@@ -106,6 +106,7 @@ function ToolbarButton({
       title={label}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
+      {...props}
     >
       {children}
     </Button>
