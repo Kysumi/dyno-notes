@@ -28,7 +28,7 @@ export function TabsStrip() {
               }
             }}
             className={cn(
-              "group flex h-7 max-w-48 min-w-24 shrink-0 items-center gap-1.5 rounded-t-md border border-b-0 px-2.5 text-xs [-webkit-app-region:no-drag]",
+              "group flex h-8 max-w-48 min-w-24 shrink-0 items-center gap-1.5 rounded-t-md border border-b-0 px-2.5 text-xs [-webkit-app-region:no-drag]",
               active
                 ? "border-border bg-background font-medium"
                 : "border-transparent bg-muted/60 text-muted-foreground hover:bg-muted",
@@ -47,7 +47,7 @@ export function TabsStrip() {
               type="button"
               variant="ghost"
               size="icon"
-              className="size-4 shrink-0 rounded-sm p-0 text-muted-foreground opacity-0 hover:bg-transparent hover:text-foreground group-hover:opacity-100"
+              className="size-4 shrink-0 rounded-sm p-0 text-muted-foreground opacity-0 hover:bg-transparent hover:text-foreground focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
               aria-label="Close tab"
               onClick={(event) => {
                 event.stopPropagation();

@@ -110,7 +110,7 @@ export function PageContext() {
           )}
 
           <section className="space-y-2">
-            <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+            <p className="text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
               Outline
             </p>
             <nav className="grid" aria-label="Page outline">
@@ -150,7 +150,7 @@ export function PageContext() {
           <Separator />
 
           <section className="space-y-2">
-            <div className="flex items-center justify-between text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+            <div className="flex items-center justify-between text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
               <span>Linked references</span>
               <Badge variant="secondary" className="px-1.5 text-[10px]">
                 {backlinks.length}
@@ -192,7 +192,7 @@ export function PageContext() {
           <Separator />
 
           <section className="space-y-2">
-            <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+            <p className="text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
               Page
             </p>
             <dl className="grid gap-2 text-xs">

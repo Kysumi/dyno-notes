@@ -504,7 +504,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b bg-muted/30 p-1.5">
+    <div className="flex flex-wrap items-center gap-0.5 py-1.5 text-muted-foreground">
       <ToolbarButton
         label="Paragraph"
         active={state.paragraph}
@@ -878,7 +878,7 @@ export function NoteEditor() {
 
   if (loading) {
     return (
-      <main className="grid min-w-0 place-items-center bg-background">
+      <main className="grid min-h-0 min-w-0 flex-1 place-items-center bg-background">
         <p className="text-sm text-muted-foreground">Opening your workspace…</p>
       </main>
     );
@@ -886,7 +886,7 @@ export function NoteEditor() {
 
   if (!note) {
     return (
-      <main className="grid min-w-0 place-items-center bg-background p-6">
+      <main className="grid min-h-0 min-w-0 flex-1 place-items-center bg-background p-6">
         <Card className="max-w-lg">
           <CardHeader>
             <CardTitle>Dyno Notes could not start</CardTitle>
@@ -903,7 +903,7 @@ export function NoteEditor() {
   }
 
   return (
-    <main className="min-w-0 overflow-y-auto bg-background">
+    <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background">
       <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto w-full max-w-3xl space-y-3 px-6 py-3 sm:px-10">
           <div className="flex items-center justify-between gap-3">
@@ -913,14 +913,14 @@ export function NoteEditor() {
                 variant={draft.mode === "wysiwyg" ? "secondary" : "ghost"}
                 onClick={() => setMode("wysiwyg")}
               >
-                WYSIWYG
+                Write
               </Button>
               <Button
                 size="xs"
                 variant={draft.mode === "source" ? "secondary" : "ghost"}
                 onClick={() => setMode("source")}
               >
-                Source
+                Markdown
               </Button>
             </div>
             <div className="flex items-center gap-2">
@@ -941,6 +941,7 @@ export function NoteEditor() {
               value={draft.title}
               onChange={(event) => changeTitle(event.target.value)}
               aria-label="Note title"
+              className="h-auto border-0 bg-transparent px-0 py-0 font-serif text-3xl font-semibold tracking-tight shadow-none focus-visible:border-transparent focus-visible:bg-muted/40 focus-visible:ring-0 sm:text-4xl md:text-4xl dark:bg-transparent dark:focus-visible:bg-muted/40"
             />
           ) : null}
         </div>
@@ -948,8 +949,8 @@ export function NoteEditor() {
 
       <div className="mx-auto w-full max-w-3xl px-6 pt-4 pb-24 sm:px-10">
         {error ? (
-          <Card className="mb-4 gap-0 border-amber-300 bg-amber-50 py-3 shadow-none">
-            <CardContent className="text-sm text-amber-950">
+          <Card className="mb-4 gap-0 border-destructive/30 bg-destructive/10 py-3 shadow-none">
+            <CardContent className="text-sm text-foreground">
               {error}
             </CardContent>
           </Card>
@@ -960,11 +961,11 @@ export function NoteEditor() {
         ) : (
           <div className="space-y-3">
             {draft.unsupportedReasons.length ? (
-              <Card className="gap-3 border-amber-300 bg-amber-50 py-4 shadow-none">
-                <CardContent className="space-y-3 text-sm text-amber-950">
+              <Card className="gap-3 border-border bg-muted/40 py-4 shadow-none">
+                <CardContent className="space-y-3 text-sm text-foreground">
                   <p>
-                    Source mode is protecting{" "}
-                    {draft.unsupportedReasons.join(", ")} from a lossy WYSIWYG
+                    Markdown mode is protecting{" "}
+                    {draft.unsupportedReasons.join(", ")} from a lossy visual
                     save.
                   </p>
                   <Button size="sm" variant="outline" onClick={convertSource}>

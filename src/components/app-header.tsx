@@ -2,8 +2,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   CircleHelp,
   FilePlus2,
   FileText,
@@ -36,42 +34,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip.tsx";
 import type { SearchResult } from "@/lib/contracts.ts";
-import {
-  dateValue,
-  journalDateFromId,
-  journalTitle,
-  shiftDate,
-  weekDates,
-} from "@/lib/dates.ts";
+import { dateValue } from "@/lib/dates.ts";
 import { desktop } from "@/lib/desktop.ts";
 
-const weekdayFormat = new Intl.DateTimeFormat("en-NZ", { weekday: "short" });
-const compactDateFormat = new Intl.DateTimeFormat("en-NZ", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
-
-function displayDate(value: string): Date {
-  return new Date(`${value}T12:00:00`);
-}
-
-function focusEditor(): void {
-  requestAnimationFrame(() =>
-    document
-      .querySelector<HTMLElement>(
-        '[aria-label="Note body"], [aria-label="Markdown source"]',
-      )
-      ?.focus(),
-  );
-}
-
 function CommandPalette({
-  compact = false,
   onOpenHelp,
   onOpenSettings,
 }: {
-  compact?: boolean;
   onOpenHelp(): Promise<boolean>;
   onOpenSettings(): Promise<boolean>;
 }) {
@@ -134,25 +103,19 @@ function CommandPalette({
         type="button"
         variant="outline"
         size="sm"
-        className={
-          compact
-            ? "h-8 w-8 justify-center bg-background/70 text-muted-foreground shadow-xs [-webkit-app-region:no-drag]"
-            : "h-8 w-8 justify-center bg-background/70 text-xs font-normal text-muted-foreground shadow-xs sm:w-full sm:justify-between [-webkit-app-region:no-drag]"
-        }
+        className="h-8 w-8 justify-center bg-background/70 text-xs font-normal text-muted-foreground shadow-xs sm:w-full sm:justify-between [-webkit-app-region:no-drag]"
         aria-label="Open command palette"
         onClick={() => setOpen(true)}
       >
         <span className="flex items-center gap-2">
           <Search />
-          <span className={compact ? "sr-only" : "hidden sm:inline"}>
+          <span className="hidden sm:inline">
             Search pages or run a command
           </span>
         </span>
-        {compact ? null : (
-          <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:block">
-            ⌘K / ⌘P
-          </kbd>
-        )}
+        <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:block">
+          ⌘K / ⌘P
+        </kbd>
       </Button>
 
       <CommandDialog
@@ -279,98 +242,6 @@ function CommandPalette({
   );
 }
 
-function JournalCalendar({ date }: { date: string }) {
-  const { notes } = useWorkspace();
-  const { openJournal } = useActiveTabNavigation();
-  const today = dateValue();
-
-  const open = async (value: string) => {
-    if (!(await openJournal(value))) return;
-    focusEditor();
-  };
-
-  return (
-    <nav
-      aria-label="Journal dates"
-      className="flex min-w-0 items-center justify-center gap-1 [-webkit-app-region:no-drag]"
-    >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Previous week"
-            onClick={() => void open(shiftDate(date, -7))}
-          >
-            <ChevronLeft />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Previous week</TooltipContent>
-      </Tooltip>
-
-      <span className="min-w-24 text-center text-xs font-medium md:hidden">
-        {compactDateFormat.format(displayDate(date))}
-      </span>
-      <div className="hidden min-w-0 flex-1 grid-cols-7 gap-1 md:grid">
-        {weekDates(date).map((value) => {
-          const selected = value === date;
-          const hasEntry = notes.some(
-            (note) => note.id === `journals/${value}.md`,
-          );
-          return (
-            <Button
-              key={value}
-              type="button"
-              variant="ghost"
-              className={
-                selected
-                  ? "h-10 min-w-0 flex-col gap-0 rounded-lg bg-primary px-1 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                  : value === today
-                    ? "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-primary ring-1 ring-primary/40"
-                    : "h-10 min-w-0 flex-col gap-0 rounded-lg px-1 text-muted-foreground"
-              }
-              aria-label={`${journalTitle(value)}${
-                hasEntry ? ", has journal entry" : ""
-              }`}
-              aria-current={selected ? "date" : undefined}
-              onClick={() => void open(value)}
-            >
-              <span className="text-[9px] leading-none font-semibold tracking-wider uppercase">
-                {weekdayFormat.format(displayDate(value))}
-              </span>
-              <span className="font-serif text-base leading-5">
-                {Number(value.slice(-2))}
-              </span>
-              <span
-                aria-hidden="true"
-                className={
-                  hasEntry
-                    ? "size-1.5 rounded-full bg-blue-500 ring-1 ring-white"
-                    : "size-1.5"
-                }
-              />
-            </Button>
-          );
-        })}
-      </div>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Next week"
-            onClick={() => void open(shiftDate(date, 7))}
-          >
-            <ChevronRight />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Next week</TooltipContent>
-      </Tooltip>
-    </nav>
-  );
-}
-
 export function AppHeader({
   onOpenHelp,
   onOpenSettings,
@@ -378,29 +249,21 @@ export function AppHeader({
   onOpenHelp(): Promise<boolean>;
   onOpenSettings(): Promise<boolean>;
 }) {
-  const { canGoBack, canGoForward, goBack, goForward, noteId } =
+  const { canGoBack, canGoForward, goBack, goForward } =
     useActiveTabNavigation();
-  const { workspacePath } = useWorkspace();
-  const journalDate = journalDateFromId(noteId ?? "");
 
   return (
     <header className="col-span-full flex flex-col border-b bg-background/95 [-webkit-app-region:drag]">
       <TabsStrip />
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1.5 [-webkit-app-region:drag] sm:gap-4 lg:grid-cols-[1fr_minmax(26rem,38rem)_1fr]">
         <div className="flex min-w-0 items-center gap-2 [-webkit-app-region:no-drag]">
-          <span className="grid size-7 place-items-center rounded-lg bg-primary font-serif text-base font-bold text-primary-foreground">
+          <span className="grid size-7 place-items-center rounded-lg bg-foreground font-serif text-base font-bold text-background">
             D
           </span>
           <span className="hidden font-semibold tracking-tight sm:inline">
             Dyno Notes
           </span>
-          <div
-            className={
-              journalDate
-                ? "ml-1 hidden items-center sm:flex"
-                : "ml-1 flex items-center"
-            }
-          >
+          <div className="ml-1 flex items-center">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -432,31 +295,11 @@ export function AppHeader({
           </div>
         </div>
 
-        {journalDate ? (
-          <JournalCalendar date={journalDate} />
-        ) : (
-          <CommandPalette
-            onOpenHelp={onOpenHelp}
-            onOpenSettings={onOpenSettings}
-          />
-        )}
-
-        {journalDate ? (
-          <div className="flex items-center justify-end gap-2 [-webkit-app-region:no-drag]">
-            <CommandPalette
-              compact
-              onOpenHelp={onOpenHelp}
-              onOpenSettings={onOpenSettings}
-            />
-          </div>
-        ) : (
-          <p
-            className="truncate text-right font-mono text-[10px] text-muted-foreground"
-            title={workspacePath}
-          >
-            {workspacePath}
-          </p>
-        )}
+        <CommandPalette
+          onOpenHelp={onOpenHelp}
+          onOpenSettings={onOpenSettings}
+        />
+        <div />
       </div>
     </header>
   );

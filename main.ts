@@ -1,5 +1,6 @@
 /// <reference lib="deno.ns" />
 
+import { existsSync } from "node:fs";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { AppError, Workspace } from "./src/host.ts";
@@ -194,8 +195,16 @@ void workspacePromise.then((workspace) => {
 });
 setInterval(() => void checkTaskDeadlines(), 30 * 60 * 1000);
 
+// `deno desktop` compiles main.ts into a bundle run from a cache dir, so
+// import.meta.dirname points at the embedded dist/ when built with
+// `--include dist`. In `--hmr` dev mode nothing is embedded, so fall back to
+// the real dist/ on disk next to the source.
+const embeddedDist = resolve(import.meta.dirname!, "dist");
+const dist = existsSync(embeddedDist)
+  ? embeddedDist
+  : resolve(Deno.cwd(), "dist");
+
 async function serve(request: Request): Promise<Response> {
-  const dist = resolve(import.meta.dirname!, "dist");
   let pathname: string;
   try {
     pathname = decodeURIComponent(new URL(request.url).pathname);

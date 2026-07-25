@@ -1,16 +1,22 @@
+import { JournalRibbon } from "@/components/journal-ribbon.tsx";
 import { NoteEditor } from "@/components/note-editor.tsx";
 import { TabProvider, useNavigation } from "@/components/notes-provider.tsx";
 import { PageContext } from "@/components/page-context.tsx";
 import { PageView } from "@/components/page-view.tsx";
 import { useTabs } from "@/components/tabs-provider.tsx";
+import { journalDateFromId } from "@/lib/dates.ts";
 
 function TabContent() {
-  const { activePageView } = useNavigation();
+  const { activePageView, noteId } = useNavigation();
+  const journalDate = journalDateFromId(noteId ?? "");
   return activePageView ? (
     <PageView key={activePageView.id} view={activePageView} />
   ) : (
     <>
-      <NoteEditor />
+      <div className="flex min-h-0 min-w-0 flex-col">
+        {journalDate ? <JournalRibbon date={journalDate} /> : null}
+        <NoteEditor />
+      </div>
       <PageContext />
     </>
   );

@@ -192,7 +192,7 @@ export function AppSidebar({
         <nav className="grid gap-0.5" aria-label="Workspace">
           {noteButton(journalId, "Today", "journal")}
           <div className="flex items-center justify-between px-2 pt-5 pb-1">
-            <p className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+            <p className="text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
               Views
             </p>
             <NewViewDialog />
@@ -225,11 +225,11 @@ export function AppSidebar({
               ) : null}
             </div>
           ))}
-          <p className="px-2 pt-5 pb-1 text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+          <p className="px-2 pt-5 pb-1 text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
             Journals
           </p>
           {journals.map((summary) => noteButton(summary.id, summary.title))}
-          <p className="px-2 pt-5 pb-1 text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+          <p className="px-2 pt-5 pb-1 text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase">
             Pages
           </p>
           {pages.map((summary) => noteButton(summary.id, summary.title))}

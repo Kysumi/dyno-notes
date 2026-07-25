@@ -1,15 +1,6 @@
-.tiptap-editor {
-  margin-top: 1.5rem;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--card);
-  box-shadow: var(--shadow-sm);
-}
-
 .tiptap-editor .tiptap {
   min-height: 32rem;
-  padding: 1.5rem 1.25rem;
+  padding: 1.5rem 0;
   color: var(--foreground);
   font-size: 1.0625rem;
   line-height: 1.75rem;
@@ -66,7 +57,8 @@
 }
 
 .tiptap-editor .tiptap a[data-wiki-state="ambiguous"] {
-  color: var(--color-amber-700);
+  color: var(--foreground);
+  text-decoration-style: dotted;
 }
 
 .tiptap-editor .tiptap a[data-wiki-state="unresolved"] {
@@ -219,7 +211,7 @@
 
 @media (min-width: 40rem) {
   .tiptap-editor .tiptap {
-    padding: 2rem;
+    padding: 2rem 0;
   }
 }
 

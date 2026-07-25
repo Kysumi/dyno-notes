@@ -1,6 +1,7 @@
 import { ArrowLeft, ListChecks } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useWorkspace } from "@/components/notes-provider.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
@@ -50,6 +51,8 @@ function Syntax({ children }: { children: ReactNode }) {
 }
 
 export function HelpPage({ onClose }: { onClose(): void }) {
+  const { workspacePath } = useWorkspace();
+
   return (
     <main className="grid h-screen grid-rows-[3.5rem_minmax(0,1fr)] overflow-hidden bg-background text-foreground">
       <header className="flex items-center border-b bg-background/95 px-3 [-webkit-app-region:drag]">
@@ -152,8 +155,8 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                 <HelpRow title="Daily journals">
                   <p>
                     Open <strong className="text-foreground">Today</strong> from
-                    the sidebar. Use the week strip or right-side calendar to
-                    move between dates. A dot marks a date with an existing
+                    the sidebar. Use the journal ribbon or right-side calendar
+                    to move between dates. A dot marks a date with an existing
                     entry.
                   </p>
                 </HelpRow>
@@ -260,8 +263,8 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                 <HelpRow title="Create a task">
                   <p>
                     Use the Task list toolbar button, or enter{" "}
-                    <Syntax>- [ ] Follow up</Syntax> in Source mode. Select its
-                    checkbox when it is complete.
+                    <Syntax>- [ ] Follow up</Syntax> in Markdown mode. Select
+                    its checkbox when it is complete.
                   </p>
                 </HelpRow>
                 <Separator />
@@ -270,7 +273,7 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                     Select the calendar icon in the toolbar while your cursor is
                     on a task to pick a date and, optionally, a time. Or type it
                     directly: <Syntax>due:: 2026-08-01</Syntax> or{" "}
-                    <Syntax>due:: 24/07/2026 14:30</Syntax> in Source mode.
+                    <Syntax>due:: 24/07/2026 14:30</Syntax> in Markdown mode.
                   </p>
                   <p>
                     It appears as a Deadline column in Tasks views, and you get
@@ -322,8 +325,14 @@ export function HelpPage({ onClose }: { onClose(): void }) {
               <HelpSection
                 id="files"
                 title="Files and saving"
-                description="Notes are Markdown files in the workspace shown in the app header."
+                description="Notes are Markdown files in Dyno's local workspace."
               >
+                <HelpRow title="Workspace">
+                  <code className="block break-all font-mono text-xs text-foreground">
+                    {workspacePath}
+                  </code>
+                </HelpRow>
+                <Separator />
                 <HelpRow title="Autosave">
                   <p>
                     Changes save automatically. The badge above the editor shows
@@ -331,12 +340,12 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                   </p>
                 </HelpRow>
                 <Separator />
-                <HelpRow title="Source mode">
+                <HelpRow title="Markdown mode">
                   <p>
-                    Switch between WYSIWYG and Source above the title. Markdown
+                    Switch between Write and Markdown above the title. Markdown
                     that the visual editor cannot safely preserve opens in
-                    Source mode; convert it only if you accept Dyno's supported
-                    format.
+                    Markdown mode; convert it only if you accept Dyno's
+                    supported format.
                   </p>
                 </HelpRow>
                 <Separator />
