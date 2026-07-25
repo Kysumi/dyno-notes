@@ -36,6 +36,7 @@ export interface PageViewFilters {
   query: string;
   hasOpenTasks: boolean;
   dueSoon: boolean;
+  overdue: boolean;
   tag: string | null;
   attributeKey: string | null;
   showAs?: "pages" | "tasks";
@@ -52,6 +53,7 @@ const EMPTY_PAGE_VIEW_FILTERS: PageViewFilters = {
   query: "",
   hasOpenTasks: false,
   dueSoon: false,
+  overdue: false,
   tag: null,
   attributeKey: null,
   showAs: "pages",
@@ -87,6 +89,10 @@ function storedPageViews(): PageViewDefinition[] {
         filters.query.length > 200 ||
         typeof filters?.hasOpenTasks !== "boolean" ||
         typeof filters?.dueSoon !== "boolean" ||
+        !(
+          filters?.overdue === undefined ||
+          typeof filters?.overdue === "boolean"
+        ) ||
         !(filters?.tag === null || typeof filters?.tag === "string") ||
         !(
           filters?.attributeKey === null ||
@@ -102,6 +108,7 @@ function storedPageViews(): PageViewDefinition[] {
             query: filters.query,
             hasOpenTasks: filters.hasOpenTasks,
             dueSoon: filters.dueSoon,
+            overdue: filters.overdue === true,
             tag: filters.tag,
             attributeKey: filters.attributeKey,
             showAs: filters.showAs === "tasks" ? "tasks" : "pages",

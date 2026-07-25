@@ -102,7 +102,10 @@ export interface DesktopBindings {
   settingsGet(): Promise<AppSettings>;
   settingsSave(input: AppSettings): Promise<AppSettings>;
   appConfigGet(): Promise<AppConfigInfo>;
-  appConfigSet(input: { notesPath: string }): Promise<{ notesPath: string }>;
+  appConfigSet(input: {
+    notesPath: string;
+    moveNotes?: boolean;
+  }): Promise<{ notesPath: string; oldPathRetained: string | null }>;
 }
 
 declare global {

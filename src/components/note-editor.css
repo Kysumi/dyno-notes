@@ -222,3 +222,12 @@
   border-radius: var(--radius-sm);
   font-weight: 500;
 }
+
+.tiptap-editor .drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  margin-top: 0.25rem;
+  padding-right: 0.25rem;
+}

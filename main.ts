@@ -82,9 +82,9 @@ function expandNotesPath(input: string): string {
 let startupError: AppError | undefined;
 let resolveWorkspacePromise: ((workspace: Workspace) => void) | undefined;
 
-const existingConfig = readAppConfig();
-const workspacePromise: Promise<Workspace | undefined> = existingConfig
-  ? Workspace.open(existingConfig.notesPath).catch((error) => {
+let appConfig = readAppConfig();
+let workspacePromise: Promise<Workspace | undefined> = appConfig
+  ? Workspace.open(appConfig.notesPath).catch((error) => {
       console.error("Workspace startup failed", error);
       startupError =
         error instanceof AppError
@@ -103,6 +103,15 @@ async function requireWorkspace(): Promise<Workspace> {
   const workspace = await workspacePromise;
   if (workspace) return workspace;
   throw startupError!;
+}
+
+function activateWorkspace(workspace: Workspace): void {
+  const resolvePendingWorkspace = resolveWorkspacePromise;
+  resolveWorkspacePromise = undefined;
+  workspacePromise = Promise.resolve(workspace);
+  notifiedTasks.clear();
+  if (resolvePendingWorkspace) resolvePendingWorkspace(workspace);
+  else watchWorkspace(workspace);
 }
 
 const win = new BrowserWindow({
@@ -144,11 +153,20 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
   settingsSave: async (input: Parameters<Workspace["saveSettings"]>[0]) =>
     (await requireWorkspace()).saveSettings(input),
   appConfigGet: async () => ({
-    notesPath: existingConfig?.notesPath ?? null,
+    notesPath: appConfig?.notesPath ?? null,
     suggestedPath: join(resolveHomeDir(), "Dyno Notes"),
   }),
-  appConfigSet: async (input: { notesPath: string }) => {
-    const expanded = expandNotesPath(input.notesPath ?? "");
+  appConfigSet: async (input?: {
+    notesPath?: unknown;
+    moveNotes?: unknown;
+  }) => {
+    if (typeof input?.notesPath !== "string") {
+      throw new AppError("InvalidInput", "Choose a folder for your notes.");
+    }
+    if (input.moveNotes !== undefined && typeof input.moveNotes !== "boolean") {
+      throw new AppError("InvalidInput", "The move option is invalid.");
+    }
+    const expanded = expandNotesPath(input.notesPath);
     if (!expanded) {
       throw new AppError("InvalidInput", "Choose a folder for your notes.");
     }
@@ -158,10 +176,46 @@ const api: Record<string, (...args: never[]) => Promise<unknown>> = {
         "Enter an absolute folder path (e.g. /Users/you/Notes).",
       );
     }
-    const workspace = await Workspace.open(expanded);
-    writeAppConfig({ notesPath: workspace.path });
-    resolveWorkspacePromise?.(workspace);
-    return { notesPath: workspace.path };
+
+    const currentWorkspace = appConfig ? await requireWorkspace() : undefined;
+    if (
+      currentWorkspace &&
+      resolve(currentWorkspace.path) === resolve(expanded)
+    ) {
+      return { notesPath: currentWorkspace.path, oldPathRetained: null };
+    }
+    if (input.moveNotes && !currentWorkspace) {
+      throw new AppError(
+        "InvalidInput",
+        "There are no existing notes to move.",
+      );
+    }
+
+    const workspace = input.moveNotes
+      ? await currentWorkspace!.copyTo(expanded)
+      : await Workspace.open(expanded);
+    try {
+      writeAppConfig({ notesPath: workspace.path });
+    } catch (error) {
+      if (input.moveNotes) {
+        await Deno.remove(workspace.path, { recursive: true }).catch(
+          () => undefined,
+        );
+      }
+      throw error;
+    }
+    appConfig = { notesPath: workspace.path };
+    activateWorkspace(workspace);
+
+    let oldPathRetained: string | null = null;
+    if (input.moveNotes && currentWorkspace) {
+      try {
+        await Deno.remove(currentWorkspace.path, { recursive: true });
+      } catch {
+        oldPathRetained = currentWorkspace.path;
+      }
+    }
+    return { notesPath: workspace.path, oldPathRetained };
   },
   windowReadyToClose: async () => {
     allowingClose = true;
@@ -242,8 +296,9 @@ async function checkTaskDeadlines(): Promise<void> {
 }
 
 let watcher: Deno.FsWatcher | undefined;
-void workspacePromise.then((workspace) => {
-  watcher = workspace?.watch(
+function watchWorkspace(workspace: Workspace): void {
+  watcher?.close();
+  watcher = workspace.watch(
     () => {
       void win.executeJs(CHANGE_SCRIPT).catch(() => undefined);
       void checkTaskDeadlines();
@@ -251,6 +306,10 @@ void workspacePromise.then((workspace) => {
     () => void win.executeJs(WATCHER_ERROR_SCRIPT).catch(() => undefined),
   );
   void checkTaskDeadlines();
+}
+
+void workspacePromise.then((workspace) => {
+  if (workspace) watchWorkspace(workspace);
 });
 setInterval(() => void checkTaskDeadlines(), 30 * 60 * 1000);
 

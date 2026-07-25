@@ -411,3 +411,41 @@ Deno.test("notification settings default to enabled and persist disabled", () =>
       dueSoonHours: 48,
     });
   }));
+
+Deno.test("workspace copy preserves every file and leaves the source intact", () =>
+  fixture(async (workspace, root) => {
+    const destination = `${root}-copy`;
+    const alias = `${root}-alias`;
+    try {
+      const note = await workspace.create({
+        kind: "page",
+        title: "Moving day",
+      });
+      await Deno.writeTextFile(`${root}/workspace-extra.txt`, "keep me");
+
+      const copied = await workspace.copyTo(destination);
+
+      equal((await copied.read(note.id)).title, "Moving day");
+      equal(
+        await Deno.readTextFile(`${destination}/workspace-extra.txt`),
+        "keep me",
+      );
+      ok((await Deno.stat(`${root}/${note.id}`)).isFile);
+      await rejects(
+        () => workspace.copyTo(destination),
+        (error: unknown) =>
+          error instanceof AppError && error.name === "InvalidInput",
+      );
+      await Deno.symlink(root, alias);
+      await rejects(
+        () => workspace.copyTo(`${alias}/nested`),
+        (error: unknown) =>
+          error instanceof AppError && error.name === "InvalidInput",
+      );
+    } finally {
+      await Deno.remove(destination, { recursive: true }).catch(
+        () => undefined,
+      );
+      await Deno.remove(alias).catch(() => undefined);
+    }
+  }));

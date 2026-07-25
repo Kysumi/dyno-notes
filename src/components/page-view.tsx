@@ -272,6 +272,7 @@ function queryLabel(filters: PageViewFilters): string {
   const parts: string[] = [];
   if (filters.hasOpenTasks) parts.push(`has open tasks`);
   if (filters.dueSoon) parts.push(`due soon`);
+  if (filters.overdue) parts.push(`overdue`);
   if (filters.tag) parts.push(`tag = #${filters.tag}`);
   if (filters.attributeKey)
     parts.push(`has attribute = ${filters.attributeKey}`);
@@ -336,6 +337,21 @@ function SaveViewDialog({ filters }: { filters: PageViewFilters }) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function taskMatchesDeadlineFilters(
+  task: Pick<TaskRecord, "checked" | "deadline">,
+  filters: Pick<PageViewFilters, "dueSoon" | "overdue">,
+  now: number,
+  dueSoonBefore: number,
+): boolean {
+  if (!filters.dueSoon && !filters.overdue) return true;
+  if (task.checked || !task.deadline) return false;
+  const deadline = deadlineTimestamp(task.deadline);
+  return (
+    (!filters.dueSoon || deadline <= dueSoonBefore) &&
+    (!filters.overdue || deadline < now)
   );
 }
 
@@ -423,15 +439,18 @@ export function PageView({ view }: { view: PageViewDefinition }) {
   const filteredTasks = useMemo(() => {
     if (filters.showAs !== "tasks") return [];
     const noteIds = new Set(filteredNotes.map((n) => n.id));
-    const dueSoonBefore = Date.now() + dueSoonHours * 60 * 60 * 1000;
+    const now = Date.now();
+    const dueSoonBefore = now + dueSoonHours * 60 * 60 * 1000;
     return allTasks.filter(
       (task) =>
         noteIds.has(task.noteId) &&
         (!filters.hasOpenTasks || !task.checked) &&
-        (!filters.dueSoon ||
-          (!task.checked &&
-            task.deadline !== null &&
-            deadlineTimestamp(task.deadline) <= dueSoonBefore)),
+        taskMatchesDeadlineFilters(
+          task,
+          { dueSoon: filters.dueSoon, overdue: filters.overdue },
+          now,
+          dueSoonBefore,
+        ),
     );
   }, [
     allTasks,
@@ -439,6 +458,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
     filters.showAs,
     filters.hasOpenTasks,
     filters.dueSoon,
+    filters.overdue,
     dueSoonHours,
   ]);
 
@@ -519,7 +539,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
           <p className="overflow-hidden rounded-md border border-primary/15 bg-primary px-3 py-2 font-mono text-xs text-primary-foreground">
             {queryLabel(filters)}
           </p>
-          <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_auto_auto_minmax(10rem,12rem)_minmax(10rem,12rem)_auto]">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_minmax(10rem,12rem)_minmax(10rem,12rem)_auto]">
             <Input
               value={filters.query}
               onChange={(event) =>
@@ -534,6 +554,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
             />
             <Button
               variant={filters.hasOpenTasks ? "default" : "outline"}
+              aria-pressed={filters.hasOpenTasks}
               onClick={() =>
                 changeFilters((curr) => ({
                   ...curr,
@@ -545,6 +566,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
             </Button>
             <Button
               variant={filters.dueSoon ? "default" : "outline"}
+              aria-pressed={filters.dueSoon}
               onClick={() =>
                 changeFilters((curr) => ({
                   ...curr,
@@ -553,6 +575,18 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               }
             >
               Due Soon
+            </Button>
+            <Button
+              variant={filters.overdue ? "default" : "outline"}
+              aria-pressed={filters.overdue}
+              onClick={() =>
+                changeFilters((current) => ({
+                  ...current,
+                  overdue: !current.overdue,
+                }))
+              }
+            >
+              Overdue
             </Button>
             <SearchableSelect
               options={tagOptions}
@@ -590,6 +624,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                   query: "",
                   hasOpenTasks: false,
                   dueSoon: false,
+                  overdue: false,
                   tag: null,
                   attributeKey: null,
                   showAs: "pages",

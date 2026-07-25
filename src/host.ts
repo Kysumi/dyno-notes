@@ -1,3 +1,4 @@
+import { cp } from "node:fs/promises";
 import {
   basename,
   dirname,
@@ -79,14 +80,16 @@ function isMissing(error: unknown): boolean {
   return error instanceof Deno.errors.NotFound;
 }
 
-function ensureContained(parent: string, child: string): void {
+function isContained(parent: string, child: string): boolean {
   const path = relative(parent, child);
-  if (
+  return (
     path === "" ||
     (!path.startsWith(`..${sep}`) && path !== ".." && !isAbsolute(path))
-  ) {
-    return;
-  }
+  );
+}
+
+function ensureContained(parent: string, child: string): void {
+  if (isContained(parent, child)) return;
   throw new AppError("InvalidNoteId", "The note ID is outside the workspace.");
 }
 
@@ -248,6 +251,63 @@ export class Workspace {
       throw new AppError(
         "WorkspaceUnavailable",
         "The Dyno Notes workspace could not be opened.",
+      );
+    }
+  }
+
+  async copyTo(path: string): Promise<Workspace> {
+    const source = resolve(this.path);
+    const destination = resolve(path);
+    if (isContained(source, destination) || isContained(destination, source)) {
+      throw new AppError(
+        "InvalidInput",
+        "Choose a folder outside the current notes folder.",
+      );
+    }
+
+    let created = false;
+    try {
+      await Deno.mkdir(dirname(destination), { recursive: true });
+      const physicalDestination = join(
+        await Deno.realPath(dirname(destination)),
+        basename(destination),
+      );
+      if (
+        isContained(this.#rootReal, physicalDestination) ||
+        isContained(physicalDestination, this.#rootReal)
+      ) {
+        throw new AppError(
+          "InvalidInput",
+          "Choose a folder outside the current notes folder.",
+        );
+      }
+      await Deno.mkdir(destination);
+      created = true;
+      for await (const entry of Deno.readDir(source)) {
+        await cp(join(source, entry.name), join(destination, entry.name), {
+          errorOnExist: true,
+          force: false,
+          preserveTimestamps: true,
+          recursive: true,
+        });
+      }
+      return await Workspace.open(destination);
+    } catch (error) {
+      if (created) {
+        await Deno.remove(destination, { recursive: true }).catch(
+          () => undefined,
+        );
+      }
+      if (error instanceof AppError) throw error;
+      if (error instanceof Deno.errors.AlreadyExists) {
+        throw new AppError(
+          "InvalidInput",
+          "Choose a new folder that does not exist yet when moving notes.",
+        );
+      }
+      throw new AppError(
+        "WorkspaceUnavailable",
+        "The notes could not be copied to the new folder.",
       );
     }
   }

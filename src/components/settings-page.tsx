@@ -4,6 +4,7 @@ import {
   Check,
   Download,
   FileText,
+  FolderOpen,
   Loader2,
   Monitor,
   Moon,
@@ -44,7 +45,12 @@ import type { AppSettings } from "@/lib/contracts.ts";
 import { desktop } from "@/lib/desktop.ts";
 import { cn } from "@/lib/utils.ts";
 
-type SettingsSection = "appearance" | "notifications" | "import" | "trash";
+type SettingsSection =
+  | "appearance"
+  | "workspace"
+  | "notifications"
+  | "import"
+  | "trash";
 
 const deletedAtFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -452,6 +458,169 @@ function NotificationsSettingsPanel() {
   );
 }
 
+function WorkspaceSettingsPanel() {
+  const { workspacePath } = useWorkspace();
+  const [notesPath, setNotesPath] = useState(workspacePath);
+  const [moveNotes, setMoveNotes] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retainedPath, setRetainedPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (workspacePath) setNotesPath(workspacePath);
+  }, [workspacePath]);
+
+  const changeFolder = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await desktop.appConfigSet({
+        notesPath: notesPath.trim(),
+        moveNotes,
+      });
+      if (result.oldPathRetained) {
+        setRetainedPath(result.oldPathRetained);
+        setSubmitting(false);
+        return;
+      }
+      location.reload();
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "The notes folder could not be changed.",
+      );
+      setSubmitting(false);
+    }
+  };
+
+  const nextPath = notesPath.trim();
+  const unchanged = !nextPath || nextPath === workspacePath;
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-8 p-6 sm:p-10">
+      <div>
+        <p className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-widest text-primary uppercase">
+          <FolderOpen className="size-4" /> Storage
+        </p>
+        <h1 className="font-serif text-3xl font-semibold tracking-tight">
+          Workspace
+        </h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+          Choose where Dyno Notes reads and saves your notes.
+        </p>
+      </div>
+
+      <Card className="gap-5 shadow-none">
+        <CardHeader>
+          <CardTitle>Notes folder</CardTitle>
+          <CardDescription>
+            Enter an absolute folder path. A new folder is created when needed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <label htmlFor="notes-folder" className="text-sm font-medium">
+              Folder path
+            </label>
+            <Input
+              id="notes-folder"
+              value={notesPath}
+              onChange={(event) => {
+                setNotesPath(event.target.value);
+                setError(null);
+              }}
+              disabled={submitting}
+              spellCheck={false}
+            />
+          </div>
+
+          <label
+            htmlFor="move-existing-notes"
+            className="flex items-start gap-3 border-t pt-5"
+          >
+            <Checkbox
+              id="move-existing-notes"
+              checked={moveNotes}
+              onCheckedChange={(checked) => setMoveNotes(checked === true)}
+              disabled={submitting}
+            />
+            <span className="grid gap-1 text-sm">
+              <span className="font-medium">Move existing notes</span>
+              <span className="text-muted-foreground">
+                Copy the complete workspace to the new folder, then remove the
+                current folder after the copy opens successfully. The new folder
+                must not already exist.
+              </span>
+            </span>
+          </label>
+
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end border-t pt-6">
+        <Button
+          disabled={submitting || unchanged}
+          onClick={() => setConfirming(true)}
+        >
+          {submitting ? "Changing folder…" : "Change notes folder"}
+        </Button>
+      </div>
+
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {moveNotes
+                ? "Move the notes folder?"
+                : "Change the notes folder?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {moveNotes
+                ? `Dyno Notes will copy the complete workspace from ${workspacePath} to ${nextPath}, verify the copy, then delete the current folder.`
+                : `Dyno Notes will use ${nextPath}. Existing notes will remain in ${workspacePath}.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant={moveNotes ? "destructive" : "default"}
+              disabled={submitting}
+              onClick={() => void changeFolder()}
+            >
+              {moveNotes ? "Move notes" : "Use new folder"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(retainedPath)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Old folder retained</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dyno Notes switched to the new folder, but could not remove{" "}
+              {retainedPath}. Your notes are safe; delete that old folder
+              manually if you no longer need it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => location.reload()}>
+              Reload Dyno Notes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 function ImportSettingsPanel() {
   const { importFiles } = useWorkspace();
   const [files, setFiles] = useState<File[]>([]);
@@ -749,6 +918,17 @@ export function SettingsPage({
               size="sm"
               className={cn(
                 "justify-start",
+                section === "workspace" && "bg-accent text-accent-foreground",
+              )}
+              onClick={() => setSection("workspace")}
+            >
+              <FolderOpen /> Workspace
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "justify-start",
                 section === "notifications" &&
                   "bg-accent text-accent-foreground",
               )}
@@ -792,6 +972,8 @@ export function SettingsPage({
               onChange={change}
               onSave={save}
             />
+          ) : section === "workspace" ? (
+            <WorkspaceSettingsPanel />
           ) : section === "notifications" ? (
             <NotificationsSettingsPanel />
           ) : section === "import" ? (
