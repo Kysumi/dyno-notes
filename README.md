@@ -27,8 +27,8 @@ it is damaged or cannot be opened. If you trust the downloaded build, remove
 its quarantine attribute and open it:
 
 ```sh
-xattr -r -d com.apple.quarantine "/Applications/Dyno-Notes-macOS-arm64.app"
-open "/Applications/Dyno-Notes-macOS-arm64.app"
+xattr -r -d com.apple.quarantine "/Applications/Dyno-Notes.app"
+open "/Applications/Dyno-Notes.app"
 ```
 
 This affects only Dyno Notes; it does not disable Gatekeeper globally. You can
