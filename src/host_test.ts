@@ -396,19 +396,25 @@ Deno.test("hashes are stable lowercase SHA-256", async () => {
   );
 });
 
-Deno.test("notification settings default to enabled and persist disabled", () =>
+Deno.test("task settings default to enabled and persist disabled", () =>
   fixture(async (workspace) => {
     deepStrictEqual(await workspace.readSettings(), DEFAULT_APP_SETTINGS);
     deepStrictEqual(
       await workspace.saveSettings({
         notificationsEnabled: false,
         dueSoonHours: 48,
+        taskConfettiEnabled: false,
       }),
-      { notificationsEnabled: false, dueSoonHours: 48 },
+      {
+        notificationsEnabled: false,
+        dueSoonHours: 48,
+        taskConfettiEnabled: false,
+      },
     );
     deepStrictEqual(await workspace.readSettings(), {
       notificationsEnabled: false,
       dueSoonHours: 48,
+      taskConfettiEnabled: false,
     });
   }));
 

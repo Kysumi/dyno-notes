@@ -554,6 +554,7 @@ export class Workspace {
       return {
         notificationsEnabled: parsed?.notificationsEnabled !== false,
         dueSoonHours: clampDueSoonHours(parsed?.dueSoonHours),
+        taskConfettiEnabled: parsed?.taskConfettiEnabled !== false,
       };
     } catch {
       return DEFAULT_APP_SETTINGS;
@@ -568,6 +569,9 @@ export class Workspace {
       dueSoonHours: clampDueSoonHours(
         (input as Partial<AppSettings> | null | undefined)?.dueSoonHours,
       ),
+      taskConfettiEnabled:
+        (input as Partial<AppSettings> | null | undefined)
+          ?.taskConfettiEnabled !== false,
     };
     await Deno.writeTextFile(
       join(this.path, SETTINGS_FILE),

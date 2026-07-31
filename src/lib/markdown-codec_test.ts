@@ -2,7 +2,11 @@ import { deepStrictEqual, equal, ok } from "node:assert/strict";
 import { getSchema } from "@tiptap/core";
 
 import { editorExtensions } from "./editor-extensions.ts";
-import { parseMarkdown, serializeMarkdown } from "./markdown-codec.ts";
+import {
+  completedTaskCount,
+  parseMarkdown,
+  serializeMarkdown,
+} from "./markdown-codec.ts";
 
 const supported = `# Project Orbit
 
@@ -51,6 +55,7 @@ Deno.test("codec preserves EOL detection and task state", () => {
   equal(parsed.eol, "\r\n");
   equal(parsed.content.content?.[0].type, "taskList");
   equal(parsed.content.content?.[0].content?.[0].attrs?.checked, true);
+  equal(completedTaskCount(parsed.content), 1);
 });
 
 Deno.test("unsupported constructs are reported before WYSIWYG editing", () => {

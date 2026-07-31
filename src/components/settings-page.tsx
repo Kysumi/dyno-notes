@@ -316,6 +316,7 @@ function AppearanceSettingsPanel({
 function NotificationsSettingsPanel() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [taskConfettiEnabled, setTaskConfettiEnabled] = useState(true);
   const [draftHours, setDraftHours] = useState("");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">(
     "idle",
@@ -330,6 +331,7 @@ function NotificationsSettingsPanel() {
         if (cancelled) return;
         setSettings(result);
         setNotificationsEnabled(result.notificationsEnabled);
+        setTaskConfettiEnabled(result.taskConfettiEnabled);
         setDraftHours(String(result.dueSoonHours));
       })
       .catch(() => {
@@ -352,10 +354,17 @@ function NotificationsSettingsPanel() {
       const saved = await desktop.settingsSave({
         notificationsEnabled,
         dueSoonHours: hoursValid ? hours : settings.dueSoonHours,
+        taskConfettiEnabled,
       });
       setSettings(saved);
       setNotificationsEnabled(saved.notificationsEnabled);
+      setTaskConfettiEnabled(saved.taskConfettiEnabled);
       setDraftHours(String(saved.dueSoonHours));
+      dispatchEvent(
+        new CustomEvent<AppSettings>("dyno-settings-change", {
+          detail: saved,
+        }),
+      );
       setSaveStatus("saved");
     } catch {
       setSaveStatus("error");
@@ -430,6 +439,28 @@ function NotificationsSettingsPanel() {
                 hours before a deadline
               </span>
             </div>
+            <label
+              htmlFor="task-confetti-enabled"
+              className="flex items-start gap-3 border-t pt-5"
+            >
+              <Checkbox
+                id="task-confetti-enabled"
+                checked={taskConfettiEnabled}
+                onCheckedChange={(checked) => {
+                  setTaskConfettiEnabled(checked === true);
+                  setSaveStatus("idle");
+                }}
+                disabled={!settings}
+              />
+              <span className="grid gap-1 text-sm">
+                <span className="font-medium">
+                  Celebrate completed tasks with confetti
+                </span>
+                <span className="text-muted-foreground">
+                  Launch confetti when I check off a task.
+                </span>
+              </span>
+            </label>
           </CardContent>
         </Card>
       )}
