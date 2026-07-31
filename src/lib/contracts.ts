@@ -60,11 +60,14 @@ export interface AppSettings {
   notificationsEnabled: boolean;
   /** Hours before a task's deadline to treat it as "due soon". */
   dueSoonHours: number;
+  /** Whether completing a task launches a confetti celebration. */
+  taskConfettiEnabled: boolean;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   notificationsEnabled: true,
   dueSoonHours: 24,
+  taskConfettiEnabled: true,
 };
 
 export interface AppConfigInfo {

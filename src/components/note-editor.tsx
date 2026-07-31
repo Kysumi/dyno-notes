@@ -36,6 +36,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { useEditorRuntime, useNotes } from "@/components/notes-provider.tsx";
 import { SearchableSelect } from "@/components/searchable-select.tsx";
+import { TaskConfetti } from "@/components/task-confetti.tsx";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,8 +73,9 @@ import {
 } from "@/components/ui/popover.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
-import type { NoteSummary } from "@/lib/contracts.ts";
+import type { AppSettings, NoteSummary } from "@/lib/contracts.ts";
 import { dateValue, localDate, parseDeadlineInput } from "@/lib/dates.ts";
+import { desktop } from "@/lib/desktop.ts";
 import {
   editorExtensions,
   ensureCurrentBlockId,
@@ -84,6 +86,7 @@ import {
   noteTarget,
   parseWikiTarget,
 } from "@/lib/markdown-scanner.ts";
+import { completedTaskCount } from "@/lib/markdown-codec.ts";
 import "./note-editor.css";
 
 function ToolbarButton({
@@ -757,6 +760,8 @@ const WysiwygEditor = memo(function WysiwygEditor() {
   } = useEditorRuntime();
   const wrapper = useRef<HTMLDivElement>(null);
   const notesRef = useRef(notes);
+  const confettiEnabled = useRef(true);
+  const [confettiBurst, setConfettiBurst] = useState(0);
   notesRef.current = notes;
   const suggestion = useMemo(
     () => wikiLinkSuggestion(() => notesRef.current),
@@ -767,8 +772,15 @@ const WysiwygEditor = memo(function WysiwygEditor() {
     content: draft().content,
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
       changeContent(editor.getJSON());
+      if (
+        confettiEnabled.current &&
+        completedTaskCount(transaction.doc.toJSON()) >
+          completedTaskCount(transaction.before.toJSON())
+      ) {
+        setConfettiBurst((burst) => burst + 1);
+      }
       queueMicrotask(() => setWikiStates(wrapper.current, notes, noteId));
     },
     editorProps: {
@@ -778,6 +790,21 @@ const WysiwygEditor = memo(function WysiwygEditor() {
       },
     },
   });
+
+  useEffect(() => {
+    const update = (settings: AppSettings) => {
+      confettiEnabled.current = settings.taskConfettiEnabled;
+    };
+    const handleSettingsChange = (event: Event) =>
+      update((event as CustomEvent<AppSettings>).detail);
+    void desktop
+      .settingsGet()
+      .then(update)
+      .catch(() => {});
+    addEventListener("dyno-settings-change", handleSettingsChange);
+    return () =>
+      removeEventListener("dyno-settings-change", handleSettingsChange);
+  }, []);
 
   useEffect(() => {
     if (!editor || !focusRequest || !wrapper.current) return;
@@ -840,6 +867,7 @@ const WysiwygEditor = memo(function WysiwygEditor() {
       }}
       className="tiptap-editor group/editor relative"
     >
+      <TaskConfetti burst={confettiBurst} />
       <EditorToolbar editor={editor} />
       <div className="relative">
         <DragHandle editor={editor}>

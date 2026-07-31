@@ -27,6 +27,16 @@ function textContent(node: JSONContent): string {
   return node.text ?? (node.content ?? []).map(textContent).join("");
 }
 
+export function completedTaskCount(node: JSONContent): number {
+  return (
+    (node.type === "taskItem" && node.attrs?.checked === true ? 1 : 0) +
+    (node.content ?? []).reduce(
+      (total, child) => total + completedTaskCount(child),
+      0,
+    )
+  );
+}
+
 function stripMarker(node: JSONContent): string | null {
   const content = node.content;
   if (!content?.length) return null;
