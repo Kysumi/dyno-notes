@@ -507,7 +507,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 py-1.5 text-muted-foreground">
+    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b bg-background/95 py-1.5 text-muted-foreground backdrop-blur">
       <ToolbarButton
         label="Paragraph"
         active={state.paragraph}
@@ -932,7 +932,7 @@ export function NoteEditor() {
 
   return (
     <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background">
-      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
+      <div className="border-b bg-background">
         <div className="mx-auto w-full max-w-3xl space-y-3 px-6 py-3 sm:px-10">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
