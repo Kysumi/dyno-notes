@@ -1,10 +1,14 @@
 import type { JSONContent } from "@tiptap/core";
 import { ChevronRight, FileText, Link } from "lucide-react";
+import type { ComponentProps } from "react";
 
 import { useNavigation, useNotes } from "@/components/notes-provider.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar.tsx";
+import {
+  Calendar as CalendarComponent,
+  CalendarDayButton,
+} from "@/components/ui/calendar.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
@@ -27,6 +31,39 @@ function focusEditor(): void {
         '[aria-label="Note body"], [aria-label="Markdown source"]',
       )
       ?.focus(),
+  );
+}
+
+function JournalCalendarDayButton({
+  "aria-label": ariaLabel,
+  children,
+  className,
+  modifiers,
+  ...props
+}: ComponentProps<typeof CalendarDayButton>) {
+  const hasEntry = modifiers.has_entry;
+
+  return (
+    <CalendarDayButton
+      className={`relative ${className ?? ""}`}
+      modifiers={modifiers}
+      aria-label={hasEntry ? `${ariaLabel}, has journal entry` : ariaLabel}
+      {...props}
+    >
+      {children}
+      {hasEntry ? (
+        <FileText
+          aria-hidden="true"
+          className={`pointer-events-none absolute right-0.5 bottom-0.5 size-2.5 ${
+            modifiers.selected
+              ? "text-primary-foreground"
+              : modifiers.outside
+                ? "text-muted-foreground"
+                : "text-primary"
+          }`}
+        />
+      ) : null}
+    </CalendarDayButton>
   );
 }
 
@@ -81,6 +118,11 @@ export function PageContext() {
                 defaultMonth={selectedDate}
                 selected={selectedDate}
                 modifiers={{
+                  has_entry: (date) =>
+                    notes.some(
+                      (summary) =>
+                        summary.id === `journals/${dateValue(date)}.md`,
+                    ),
                   week: { from: selectedWeek[0], to: selectedWeek[6] },
                   week_start: selectedWeek[0],
                   week_middle: {
@@ -97,6 +139,7 @@ export function PageContext() {
                   today:
                     "[&>button]:text-primary [&>button]:ring-1 [&>button]:ring-primary/40",
                 }}
+                components={{ DayButton: JournalCalendarDayButton }}
                 onSelect={(selectedDate) => {
                   if (selectedDate) {
                     void openJournal(dateValue(selectedDate)).then((opened) => {

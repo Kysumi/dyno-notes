@@ -1,13 +1,22 @@
 import { useEffect } from "react";
 
-const colors = [
-  "bg-orange-500",
-  "bg-yellow-500",
-  "bg-green-500",
-  "bg-cyan-500",
-  "bg-violet-500",
-];
-const shapes = ["h-3 w-1", "size-2 rounded-full", "h-2 w-3"];
+const colors = ["#f97316", "#eab308", "#22c55e", "#06b6d4", "#8b5cf6"];
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  rotation: number;
+  spin: number;
+  flutter: number;
+  phase: number;
+  gravity: number;
+  age: number;
+  life: number;
+  color: string;
+}
 
 export function TaskConfetti({ burst }: { burst: number }) {
   useEffect(() => {
@@ -15,57 +24,96 @@ export function TaskConfetti({ burst }: { burst: number }) {
       return;
     }
 
-    const container = document.createElement("div");
-    container.className =
-      "pointer-events-none fixed inset-0 z-50 overflow-hidden";
-    container.setAttribute("aria-hidden", "true");
-    document.body.append(container);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) return;
 
-    for (let index = 0; index < 42; index++) {
-      const piece = document.createElement("i");
-      piece.className = `absolute left-1/2 top-3/5 rounded-xs ${colors[index % colors.length]} ${shapes[index % shapes.length]}`;
-      container.append(piece);
-      const x = (Math.random() - 0.5) * 640;
-      const apex = 180 + Math.random() * 220;
-      const spin = (Math.random() > 0.5 ? 1 : -1) * (540 + Math.random() * 540);
-      const animation = piece.animate(
-        [
-          {
-            transform: "translate(-50%, -50%) rotate(0deg) scale(.6)",
-            opacity: 0,
-            offset: 0,
-          },
-          {
-            transform: `translate(calc(-50% + ${x * 0.12}px), calc(-50% - ${apex * 0.45}px)) rotate(${spin * 0.2}deg) scale(1)`,
-            opacity: 1,
-            offset: 0.12,
-          },
-          {
-            transform: `translate(calc(-50% + ${x * 0.62}px), calc(-50% - ${apex}px)) rotate(${spin * 0.58}deg)`,
-            opacity: 1,
-            offset: 0.48,
-            easing: "cubic-bezier(.45,0,1,1)",
-          },
-          {
-            transform: `translate(calc(-50% + ${x}px), calc(-50% + 45vh)) rotate(${spin}deg)`,
-            opacity: 0,
-            offset: 1,
-          },
-        ],
-        {
-          delay: Math.random() * 120,
-          duration: 1250 + Math.random() * 450,
-          easing: "cubic-bezier(.2,.7,.3,1)",
-          fill: "forwards",
-        },
-      );
-      animation.onfinish = () => piece.remove();
-    }
+    const width = innerWidth;
+    const height = innerHeight;
+    const pixelRatio = Math.min(devicePixelRatio, 2);
+    canvas.width = width * pixelRatio;
+    canvas.height = height * pixelRatio;
+    canvas.className = "pointer-events-none fixed inset-0 z-50 h-full w-full";
+    canvas.setAttribute("aria-hidden", "true");
+    context.scale(pixelRatio, pixelRatio);
+    document.body.append(canvas);
 
-    const cleanup = setTimeout(() => container.remove(), 1900);
+    const particles: Particle[] = Array.from({ length: 80 }, (_, index) => {
+      const fromLeft = index % 2 === 0;
+      return {
+        x: width * (fromLeft ? 0.12 : 0.88),
+        y: height * 0.82,
+        vx:
+          (fromLeft ? 1 : -1) * (130 + Math.random() * 250) +
+          (Math.random() - 0.5) * 80,
+        vy: -(520 + Math.random() * 380),
+        size: 6 + Math.random() * 7,
+        rotation: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 14,
+        flutter: 7 + Math.random() * 8,
+        phase: Math.random() * Math.PI * 2,
+        gravity: 650 + Math.random() * 180,
+        age: -Math.random() * 0.12,
+        life: 3 + Math.random(),
+        color: colors[index % colors.length],
+      };
+    });
+
+    let frame = 0;
+    let previous = performance.now();
+    const draw = (now: number) => {
+      const delta = Math.min((now - previous) / 1000, 0.032);
+      previous = now;
+      context.clearRect(0, 0, width, height);
+      let active = false;
+
+      for (const particle of particles) {
+        particle.age += delta;
+        if (particle.age < 0) {
+          active = true;
+          continue;
+        }
+        if (particle.age >= particle.life || particle.y > height + 30) continue;
+        active = true;
+
+        const drag = Math.pow(0.985, delta * 60);
+        particle.vx *= drag;
+        particle.vy =
+          particle.vy * Math.pow(0.997, delta * 60) + particle.gravity * delta;
+        particle.x +=
+          (particle.vx +
+            Math.sin(particle.age * particle.flutter + particle.phase) * 35) *
+          delta;
+        particle.y += particle.vy * delta;
+        particle.rotation += particle.spin * delta;
+
+        const opacity =
+          Math.min(1, particle.age * 8) *
+          Math.min(1, (particle.life - particle.age) / 0.6);
+        const flip = Math.cos(particle.age * particle.flutter + particle.phase);
+        context.save();
+        context.globalAlpha = opacity;
+        context.fillStyle = particle.color;
+        context.translate(particle.x, particle.y);
+        context.rotate(particle.rotation);
+        context.scale(1, flip);
+        context.fillRect(
+          -particle.size / 2,
+          -particle.size / 3,
+          particle.size,
+          particle.size * 0.66,
+        );
+        context.restore();
+      }
+
+      if (active) frame = requestAnimationFrame(draw);
+      else canvas.remove();
+    };
+    frame = requestAnimationFrame(draw);
+
     return () => {
-      clearTimeout(cleanup);
-      container.remove();
+      cancelAnimationFrame(frame);
+      canvas.remove();
     };
   }, [burst]);
 
