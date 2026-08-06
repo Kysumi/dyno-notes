@@ -140,6 +140,43 @@ function setUrl(editor: Editor, reportError: (message: string | null) => void) {
   }
 }
 
+async function insertImages(
+  editor: Editor,
+  files: readonly File[],
+  reportError: (message: string | null) => void,
+) {
+  if (files.some((file) => !file.type.startsWith("image/"))) {
+    reportError("Choose an image file.");
+    return;
+  }
+
+  try {
+    const sources = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.addEventListener("load", () =>
+              typeof reader.result === "string"
+                ? resolve(reader.result)
+                : reject(),
+            );
+            reader.addEventListener("error", reject);
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+    const chain = editor.chain().focus();
+    sources.forEach((src, index) =>
+      chain.setImage({ src, alt: files[index].name }),
+    );
+    chain.run();
+    reportError(null);
+  } catch {
+    reportError("The image could not be read.");
+  }
+}
+
 function setWikiStates(
   root: HTMLDivElement | null,
   notes: NoteSummary[],
@@ -460,30 +497,6 @@ function EditorToolbar({ editor }: { editor: Editor }) {
   const heading = (level: 2 | 3) =>
     editor.chain().focus().toggleHeading({ level }).run();
 
-  const insertImage = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      reportError("Choose an image file.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      if (typeof reader.result !== "string") {
-        reportError("The image could not be read.");
-        return;
-      }
-      editor
-        .chain()
-        .focus()
-        .setImage({ src: reader.result, alt: file.name })
-        .run();
-      reportError(null);
-    });
-    reader.addEventListener("error", () =>
-      reportError("The image could not be read."),
-    );
-    reader.readAsDataURL(file);
-  };
-
   const copyBlockLink = async () => {
     if (!noteId) return;
     const blockId = ensureCurrentBlockId(editor);
@@ -623,7 +636,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = "";
-          if (file) insertImage(file);
+          if (file) void insertImages(editor, [file], reportError);
         }}
       />
       <div className="ml-auto">
@@ -862,6 +875,15 @@ const WysiwygEditor = memo(function WysiwygEditor() {
     <div
       ref={wrapper}
       onClickCapture={handleLinkClick}
+      onPasteCapture={(event) => {
+        const files = Array.from(event.clipboardData.files).filter((file) =>
+          file.type.startsWith("image/"),
+        );
+        if (!files.length) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void insertImages(editor, files, reportError);
+      }}
       onKeyDownCapture={(event) => {
         if (event.key === "Enter") handleLinkClick(event);
       }}
