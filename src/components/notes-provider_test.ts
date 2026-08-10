@@ -58,6 +58,7 @@ Deno.test("view filter changes update only the selected custom view", () => {
         overdue: false,
         tag: null,
         attributeKey: null,
+        blockType: null,
         showAs: "pages" as const,
       },
       custom: true,
@@ -72,6 +73,7 @@ Deno.test("view filter changes update only the selected custom view", () => {
         overdue: false,
         tag: null,
         attributeKey: null,
+        blockType: null,
         showAs: "pages" as const,
       },
       custom: true,
@@ -80,8 +82,10 @@ Deno.test("view filter changes update only the selected custom view", () => {
   const updated = updatePageViewFilters(original, "one", {
     ...original[0].filters,
     tag: "project",
+    blockType: "tldraw",
   });
 
   strictEqual(updated[0].filters.tag, "project");
+  strictEqual(updated[0].filters.blockType, "tldraw");
   strictEqual(updated[1], original[1]);
 });

@@ -120,6 +120,17 @@ Deno.test("find uses literal, case-insensitive, non-overlapping matches", () => 
           { type: "text", marks: [{ type: "bold" }], text: "format" },
         ],
       },
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "See " },
+          {
+            type: "wikiLink",
+            attrs: { target: "Project Orbit", label: "Orbit" },
+          },
+          { type: "text", text: " now" },
+        ],
+      },
       { type: "paragraph", content: [{ type: "text", text: "format" }] },
     ],
   });
@@ -128,7 +139,10 @@ Deno.test("find uses literal, case-insensitive, non-overlapping matches", () => 
   ]);
   deepStrictEqual(findTextRanges(document, "format"), [
     { from: 7, to: 13 },
-    { from: 15, to: 21 },
+    { from: 26, to: 32 },
+  ]);
+  deepStrictEqual(findTextRanges(document, "Orbit"), [
+    { from: 19, to: 20, node: true },
   ]);
   deepStrictEqual(findTextRanges(document, "formatformat"), []);
 });

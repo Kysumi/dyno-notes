@@ -31,6 +31,7 @@ const targetableBlocks = [
 export interface FindRange {
   from: number;
   to: number;
+  node?: true;
 }
 
 export function literalMatchOffsets(text: string, query: string): FindRange[] {
@@ -66,6 +67,16 @@ export function findTextRanges(
         text += child.text ?? "";
       } else {
         flush();
+        if (child.isInline && child.isAtom) {
+          const rendered = child.type.spec.toText?.({ node: child }) ?? "";
+          for (const _match of literalMatchOffsets(rendered, query)) {
+            ranges.push({
+              from: pos + 1 + offset,
+              to: pos + 1 + offset + child.nodeSize,
+              node: true,
+            });
+          }
+        }
       }
     });
     flush();
@@ -89,11 +100,14 @@ function findDecorations(
 ): DecorationSet {
   return DecorationSet.create(
     doc,
-    findTextRanges(doc, query).map((range, index) =>
-      Decoration.inline(range.from, range.to, {
+    findTextRanges(doc, query).map((range, index) => {
+      const attributes = {
         class: index === activeIndex ? "find-match-active" : "find-match",
-      }),
-    ),
+      };
+      return range.node
+        ? Decoration.node(range.from, range.to, attributes)
+        : Decoration.inline(range.from, range.to, attributes);
+    }),
   );
 }
 
