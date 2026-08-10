@@ -250,6 +250,63 @@ See [[pages/orbit#^abcdef123456|target]]. ^111111111111
     );
   }));
 
+Deno.test("search excerpts center plain-text lines on the first body match", () =>
+  fixture(async (workspace, root) => {
+    await Deno.writeTextFile(
+      `${root}/pages/context.md`,
+      `---
+hidden: frontmatter
+---
+# Heading **one**
+
+\`inline code\`
+- [ ] Before [two](https://example.com)
+> Before [[Page|three]] ^abcdef123456
+
+\`\`\`md
+fenced code
+\`\`\`
+- [x] Find **Needle** [[Page]] ^123456abcdef
+1. After _one_
+- After [two](https://example.com)
+### After ~~three~~
+`,
+    );
+    await Deno.writeTextFile(
+      `${root}/pages/project-orbit.md`,
+      "Opening **context**\n\nSecond line\n",
+    );
+    await workspace.rebuildIndex();
+
+    equal(
+      workspace.search("needle")[0].excerpt,
+      [
+        "Heading one",
+        "Before two",
+        "Before three",
+        "Find Needle Page",
+        "After one",
+        "After two",
+        "After three",
+      ].join("\n"),
+    );
+    equal(
+      workspace.search("three find")[0].excerpt,
+      [
+        "Heading one",
+        "Before two",
+        "Before three",
+        "Find Needle Page",
+        "After one",
+        "After two",
+      ].join("\n"),
+    );
+    equal(
+      workspace.search("project")[0].excerpt,
+      "Opening context\nSecond line",
+    );
+  }));
+
 Deno.test("ambiguous titles stay unresolved and deletion removes derived backlinks", () =>
   fixture(async (workspace, root) => {
     await Deno.writeTextFile(`${root}/pages/one.md`, "# Same\n");

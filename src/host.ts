@@ -214,13 +214,14 @@ function clampDueSoonHours(value: unknown): number {
     : DEFAULT_APP_SETTINGS.dueSoonHours;
 }
 
-function bodyExcerpt(text: string, query: string): string {
-  if (!text) return "";
-  const index = normalizeSearchText(text).indexOf(query);
-  if (index < 0) return text.length <= 160 ? text : `${text.slice(0, 157)}…`;
-  const start = Math.max(0, index - 60);
-  const excerpt = text.slice(start, start + 160).trim();
-  return `${start ? "…" : ""}${excerpt}${start + 160 < text.length ? "…" : ""}`;
+function bodyExcerpt(lines: string[], query: string): string {
+  const normalizedLines = lines.map(normalizeSearchText);
+  const match = normalizedLines.join(" ").indexOf(query);
+  if (match < 0) return lines.slice(0, 7).join("\n");
+  let line = 0;
+  let lineEnd = normalizedLines[0].length;
+  while (lineEnd < match) lineEnd += normalizedLines[++line].length + 1;
+  return lines.slice(Math.max(0, line - 3), line + 4).join("\n");
 }
 
 export class Workspace {
@@ -1007,7 +1008,7 @@ export class Workspace {
       .map(({ summary, markdown }) => ({
         id: summary.id,
         title: summary.title,
-        excerpt: bodyExcerpt(markdown.searchText, normalizedQuery),
+        excerpt: bodyExcerpt(markdown.searchableLines, normalizedQuery),
       }));
   }
 

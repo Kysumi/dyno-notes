@@ -26,6 +26,7 @@ export interface IndexedMarkdown {
   title: string;
   hasTitle: boolean;
   searchText: string;
+  searchableLines: string[];
   blocks: ScannedBlock[];
   links: ScannedLink[];
   tasks: ScannedTask[];
@@ -261,6 +262,7 @@ export function scanMarkdown(source: string): IndexedMarkdown {
     title,
     hasTitle,
     searchText,
+    searchableLines: searchable,
     blocks,
     links,
     tasks,

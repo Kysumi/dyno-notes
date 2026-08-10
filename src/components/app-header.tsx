@@ -191,6 +191,7 @@ function CommandPalette({
                   key={page.id}
                   value={page.id}
                   keywords={[page.title, page.excerpt]}
+                  className="items-start"
                   onSelect={() => {
                     openNewTab({ noteId: page.id });
                     close();
@@ -202,7 +203,7 @@ function CommandPalette({
                       {page.title}
                     </span>
                     {page.excerpt ? (
-                      <span className="block truncate text-xs font-normal text-muted-foreground">
+                      <span className="block whitespace-pre-line text-xs leading-snug font-normal text-muted-foreground">
                         {page.excerpt}
                       </span>
                     ) : null}
