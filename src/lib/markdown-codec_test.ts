@@ -1,7 +1,11 @@
 import { deepStrictEqual, equal, ok } from "node:assert/strict";
 import { getSchema } from "@tiptap/core";
 
-import { editorExtensions } from "./editor-extensions.ts";
+import {
+  editorExtensions,
+  findTextRanges,
+  literalMatchOffsets,
+} from "./editor-extensions.ts";
 import {
   completedTaskCount,
   parseMarkdown,
@@ -88,4 +92,43 @@ Deno.test("a missing leading title stays in protected source mode", () => {
 Deno.test("an empty WYSIWYG document defaults to a paragraph", () => {
   const document = getSchema(editorExtensions()).topNodeType.createAndFill();
   equal(document?.firstChild?.type.name, "paragraph");
+});
+
+Deno.test("find uses literal, case-insensitive, non-overlapping matches", () => {
+  deepStrictEqual(literalMatchOffsets("a+b A+B aaaa", "a+b"), [
+    { from: 0, to: 3 },
+    { from: 4, to: 7 },
+  ]);
+  deepStrictEqual(literalMatchOffsets("aaaa", "aa"), [
+    { from: 0, to: 2 },
+    { from: 2, to: 4 },
+  ]);
+  deepStrictEqual(literalMatchOffsets("[draft]", "[draft]"), [
+    { from: 0, to: 7 },
+  ]);
+  deepStrictEqual(literalMatchOffsets("note", "missing"), []);
+  deepStrictEqual(literalMatchOffsets("note", ""), []);
+
+  const schema = getSchema(editorExtensions());
+  const document = schema.nodeFromJSON({
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "mixed " },
+          { type: "text", marks: [{ type: "bold" }], text: "format" },
+        ],
+      },
+      { type: "paragraph", content: [{ type: "text", text: "format" }] },
+    ],
+  });
+  deepStrictEqual(findTextRanges(document, "mixed format"), [
+    { from: 1, to: 13 },
+  ]);
+  deepStrictEqual(findTextRanges(document, "format"), [
+    { from: 7, to: 13 },
+    { from: 15, to: 21 },
+  ]);
+  deepStrictEqual(findTextRanges(document, "formatformat"), []);
 });

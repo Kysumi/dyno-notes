@@ -14,6 +14,15 @@
   background: var(--primary);
 }
 
+.tiptap-editor .tiptap .find-match {
+  background: color-mix(in oklab, var(--primary) 22%, transparent);
+}
+
+.tiptap-editor .tiptap .find-match-active {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
 .tiptap-editor .tiptap > * {
   margin-right: -0.75rem;
   margin-left: -0.75rem;

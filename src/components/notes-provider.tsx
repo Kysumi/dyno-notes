@@ -12,12 +12,14 @@ import {
 import { toast } from "sonner";
 
 import { useTabs } from "@/components/tabs-provider.tsx";
-import type {
-  Backlink,
-  NoteFile,
-  NoteId,
-  NoteSummary,
-  TrashEntry,
+import {
+  CONTENT_BLOCK_TYPES,
+  type Backlink,
+  type ContentBlockType,
+  type NoteFile,
+  type NoteId,
+  type NoteSummary,
+  type TrashEntry,
 } from "@/lib/contracts.ts";
 import { dateValue, journalDateFromId, journalTitle } from "@/lib/dates.ts";
 import { desktop } from "@/lib/desktop.ts";
@@ -39,6 +41,7 @@ export interface PageViewFilters {
   overdue: boolean;
   tag: string | null;
   attributeKey: string | null;
+  blockType: ContentBlockType | null;
   showAs?: "pages" | "tasks";
 }
 
@@ -56,6 +59,7 @@ const EMPTY_PAGE_VIEW_FILTERS: PageViewFilters = {
   overdue: false,
   tag: null,
   attributeKey: null,
+  blockType: null,
   showAs: "pages",
 };
 
@@ -97,6 +101,11 @@ function storedPageViews(): PageViewDefinition[] {
         !(
           filters?.attributeKey === null ||
           typeof filters?.attributeKey === "string"
+        ) ||
+        !(
+          filters?.blockType === undefined ||
+          filters.blockType === null ||
+          CONTENT_BLOCK_TYPES.includes(filters.blockType)
         )
       )
         return [];
@@ -111,6 +120,7 @@ function storedPageViews(): PageViewDefinition[] {
             overdue: filters.overdue === true,
             tag: filters.tag,
             attributeKey: filters.attributeKey,
+            blockType: filters.blockType ?? null,
             showAs: filters.showAs === "tasks" ? "tasks" : "pages",
           },
           custom: true,
@@ -361,6 +371,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           wordCount: scanned.wordCount,
           tags: scanned.tags,
           attributes: scanned.attributes,
+          blockTypes: scanned.blockTypes,
           openTasks: scanned.tasks.filter((t) => !t.checked).length,
           completedTasks: scanned.tasks.filter((t) => t.checked).length,
         };

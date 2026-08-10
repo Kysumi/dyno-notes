@@ -290,21 +290,8 @@ fenced code
         "After three",
       ].join("\n"),
     );
-    equal(
-      workspace.search("three find")[0].excerpt,
-      [
-        "Heading one",
-        "Before two",
-        "Before three",
-        "Find Needle Page",
-        "After one",
-        "After two",
-      ].join("\n"),
-    );
-    equal(
-      workspace.search("project")[0].excerpt,
-      "Opening context\nSecond line",
-    );
+    equal(workspace.search("three find")[0].excerpt, "");
+    equal(workspace.search("project")[0].excerpt, "");
   }));
 
 Deno.test("ambiguous titles stay unresolved and deletion removes derived backlinks", () =>

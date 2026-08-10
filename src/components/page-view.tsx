@@ -39,11 +39,25 @@ import {
 } from "@/components/ui/table.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { DEFAULT_APP_SETTINGS } from "@/lib/contracts.ts";
-import type { NoteSummary, TaskRecord } from "@/lib/contracts.ts";
+import type {
+  ContentBlockType,
+  NoteSummary,
+  TaskRecord,
+} from "@/lib/contracts.ts";
 import { deadlineTimestamp, formatDeadline } from "@/lib/dates.ts";
 import { desktop } from "@/lib/desktop.ts";
 
 const dateFormatter = new Intl.DateTimeFormat("en-NZ", { dateStyle: "medium" });
+const BLOCK_TYPE_OPTIONS: ReadonlyArray<{
+  value: ContentBlockType;
+  label: string;
+}> = [
+  { value: "tldraw", label: "Drawing" },
+  { value: "image", label: "Image" },
+  { value: "codeBlock", label: "Code block" },
+  { value: "blockquote", label: "Quote" },
+  { value: "taskItem", label: "Task" },
+];
 
 function SortableHeader<T>({
   column,
@@ -276,6 +290,12 @@ function queryLabel(filters: PageViewFilters): string {
   if (filters.tag) parts.push(`tag = #${filters.tag}`);
   if (filters.attributeKey)
     parts.push(`has attribute = ${filters.attributeKey}`);
+  if (filters.blockType) {
+    const label = BLOCK_TYPE_OPTIONS.find(
+      (option) => option.value === filters.blockType,
+    )?.label;
+    if (label) parts.push(`block type = ${label}`);
+  }
   if (filters.query) parts.push(`title contains “${filters.query}”`);
   const type = filters.showAs === "tasks" ? "TASKS" : "PAGES";
   return parts.length
@@ -355,6 +375,20 @@ export function taskMatchesDeadlineFilters(
   );
 }
 
+export function noteMatchesFilters(
+  note: NoteSummary,
+  filters: PageViewFilters,
+): boolean {
+  return !(
+    (filters.hasOpenTasks && note.openTasks === 0) ||
+    (filters.tag && !note.tags.includes(filters.tag)) ||
+    (filters.attributeKey && !(filters.attributeKey in note.attributes)) ||
+    (filters.blockType && !note.blockTypes.includes(filters.blockType)) ||
+    (filters.query &&
+      !note.title.toLowerCase().includes(filters.query.toLowerCase()))
+  );
+}
+
 export function PageView({ view }: { view: PageViewDefinition }) {
   const { notes, openNote, updatePageView } = useNavigation();
   const [draftFilters, setDraftFilters] = useState<PageViewFilters>(() => ({
@@ -412,29 +446,10 @@ export function PageView({ view }: { view: PageViewDefinition }) {
     };
   }, []);
 
-  const filteredNotes = useMemo(() => {
-    return notes.filter((note) => {
-      if (filters.hasOpenTasks && (!note.openTasks || note.openTasks === 0)) {
-        return false;
-      }
-      if (filters.tag && !note.tags?.includes(filters.tag)) {
-        return false;
-      }
-      if (
-        filters.attributeKey &&
-        (!note.attributes || !(filters.attributeKey in note.attributes))
-      ) {
-        return false;
-      }
-      if (
-        filters.query &&
-        !note.title.toLowerCase().includes(filters.query.toLowerCase())
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [notes, filters]);
+  const filteredNotes = useMemo(
+    () => notes.filter((note) => noteMatchesFilters(note, filters)),
+    [notes, filters],
+  );
 
   const filteredTasks = useMemo(() => {
     if (filters.showAs !== "tasks") return [];
@@ -539,7 +554,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
           <p className="overflow-hidden rounded-md border border-primary/15 bg-primary px-3 py-2 font-mono text-xs text-primary-foreground">
             {queryLabel(filters)}
           </p>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_minmax(10rem,12rem)_minmax(10rem,12rem)_auto]">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_minmax(10rem,12rem)_minmax(10rem,12rem)_minmax(10rem,12rem)_auto]">
             <Input
               value={filters.query}
               onChange={(event) =>
@@ -616,6 +631,20 @@ export function PageView({ view }: { view: PageViewDefinition }) {
               clearable
               aria-label="Filter by attribute"
             />
+            <SearchableSelect
+              options={BLOCK_TYPE_OPTIONS}
+              value={filters.blockType}
+              onValueChange={(blockType) =>
+                changeFilters((current) => ({
+                  ...current,
+                  blockType: blockType as ContentBlockType | null,
+                }))
+              }
+              placeholder="Any block type"
+              emptyMessage="No block types found."
+              clearable
+              aria-label="Filter by block type"
+            />
             <Button
               variant="ghost"
               size="sm"
@@ -627,6 +656,7 @@ export function PageView({ view }: { view: PageViewDefinition }) {
                   overdue: false,
                   tag: null,
                   attributeKey: null,
+                  blockType: null,
                   showAs: "pages",
                 }))
               }

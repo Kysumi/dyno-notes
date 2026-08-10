@@ -28,6 +28,120 @@ const targetableBlocks = [
   "codeBlock",
 ];
 
+export interface FindRange {
+  from: number;
+  to: number;
+}
+
+export function literalMatchOffsets(text: string, query: string): FindRange[] {
+  if (!query) return [];
+  const pattern = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return Array.from(text.matchAll(new RegExp(pattern, "giu")), (match) => ({
+    from: match.index,
+    to: match.index + match[0].length,
+  }));
+}
+
+export function findTextRanges(
+  doc: ProseMirrorNode,
+  query: string,
+): FindRange[] {
+  const ranges: FindRange[] = [];
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return;
+    let text = "";
+    let start = 0;
+    const flush = () => {
+      for (const match of literalMatchOffsets(text, query)) {
+        ranges.push({
+          from: pos + 1 + start + match.from,
+          to: pos + 1 + start + match.to,
+        });
+      }
+      text = "";
+    };
+    node.forEach((child, offset) => {
+      if (child.isText) {
+        if (!text) start = offset;
+        text += child.text ?? "";
+      } else {
+        flush();
+      }
+    });
+    flush();
+    return false;
+  });
+  return ranges;
+}
+
+interface FindInPageState {
+  query: string;
+  activeIndex: number;
+  decorations: DecorationSet;
+}
+
+const findInPageKey = new PluginKey<FindInPageState>("findInPage");
+
+function findDecorations(
+  doc: ProseMirrorNode,
+  query: string,
+  activeIndex: number,
+): DecorationSet {
+  return DecorationSet.create(
+    doc,
+    findTextRanges(doc, query).map((range, index) =>
+      Decoration.inline(range.from, range.to, {
+        class: index === activeIndex ? "find-match-active" : "find-match",
+      }),
+    ),
+  );
+}
+
+export const FindInPage = Extension.create({
+  name: "findInPage",
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin<FindInPageState>({
+        key: findInPageKey,
+        state: {
+          init: () => ({
+            query: "",
+            activeIndex: 0,
+            decorations: DecorationSet.empty,
+          }),
+          apply(tr, previous) {
+            const update = tr.getMeta(findInPageKey) as
+              | { query: string; activeIndex: number }
+              | undefined;
+            if (!update && !tr.docChanged) return previous;
+            const query = update?.query ?? previous.query;
+            const activeIndex = update?.activeIndex ?? previous.activeIndex;
+            return {
+              query,
+              activeIndex,
+              decorations: findDecorations(tr.doc, query, activeIndex),
+            };
+          },
+        },
+        props: {
+          decorations: (state) => findInPageKey.getState(state)?.decorations,
+        },
+      }),
+    ];
+  },
+});
+
+export function setFindInPage(
+  editor: Editor,
+  query: string,
+  activeIndex: number,
+): void {
+  editor.view.dispatch(
+    editor.state.tr.setMeta(findInPageKey, { query, activeIndex }),
+  );
+}
+
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     wikiLink: {

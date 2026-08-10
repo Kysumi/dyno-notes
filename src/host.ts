@@ -215,12 +215,10 @@ function clampDueSoonHours(value: unknown): number {
 }
 
 function bodyExcerpt(lines: string[], query: string): string {
-  const normalizedLines = lines.map(normalizeSearchText);
-  const match = normalizedLines.join(" ").indexOf(query);
-  if (match < 0) return lines.slice(0, 7).join("\n");
-  let line = 0;
-  let lineEnd = normalizedLines[0].length;
-  while (lineEnd < match) lineEnd += normalizedLines[++line].length + 1;
+  const line = lines.findIndex((value) =>
+    normalizeSearchText(value).includes(query),
+  );
+  if (line < 0) return "";
   return lines.slice(Math.max(0, line - 3), line + 4).join("\n");
 }
 
@@ -508,6 +506,7 @@ export class Workspace {
       wordCount: markdown.wordCount,
       tags: markdown.tags,
       attributes: markdown.attributes,
+      blockTypes: markdown.blockTypes,
       openTasks: markdown.tasks.filter((t) => !t.checked).length,
       completedTasks: markdown.tasks.filter((t) => t.checked).length,
     };

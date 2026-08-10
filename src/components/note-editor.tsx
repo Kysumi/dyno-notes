@@ -15,6 +15,8 @@ import {
   Bold,
   Braces,
   CalendarClock,
+  ChevronDown,
+  ChevronUp,
   Code,
   Copy,
   GripVertical,
@@ -29,10 +31,19 @@ import {
   Pilcrow,
   Presentation,
   Quote,
+  Search,
   Strikethrough,
   Trash2,
+  X,
 } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { useEditorRuntime, useNotes } from "@/components/notes-provider.tsx";
 import { SearchableSelect } from "@/components/searchable-select.tsx";
@@ -79,6 +90,10 @@ import { desktop } from "@/lib/desktop.ts";
 import {
   editorExtensions,
   ensureCurrentBlockId,
+  findTextRanges,
+  FindInPage,
+  literalMatchOffsets,
+  setFindInPage,
 } from "@/lib/editor-extensions.ts";
 import {
   DEADLINE_MARKER,
@@ -113,6 +128,99 @@ function ToolbarButton({
     >
       {children}
     </Button>
+  );
+}
+
+interface FindControlsProps {
+  open: boolean;
+  query: string;
+  activeIndex: number;
+  inputRef: RefObject<HTMLInputElement | null>;
+  onQueryChange(query: string): void;
+  onActiveIndexChange(index: number): void;
+  onClose(): void;
+}
+
+interface FindStripProps extends FindControlsProps {
+  count: number;
+  onNavigate?(index: number): void;
+}
+
+function FindStrip({
+  query,
+  activeIndex,
+  count,
+  inputRef,
+  onQueryChange,
+  onActiveIndexChange,
+  onNavigate,
+  onClose,
+}: FindStripProps) {
+  const navigate = (direction: -1 | 1) => {
+    if (!count) return;
+    const index = (activeIndex + direction + count) % count;
+    onActiveIndexChange(index);
+    onNavigate?.(index);
+  };
+
+  return (
+    <div className="flex items-center justify-end gap-1 border-b bg-background/95 py-1.5 backdrop-blur">
+      <Input
+        ref={inputRef}
+        value={query}
+        onChange={(event) => onQueryChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            navigate(event.shiftKey ? -1 : 1);
+          }
+        }}
+        aria-label="Find in note"
+        placeholder="Find in note…"
+        className="h-7 w-48"
+      />
+      <span
+        className="w-14 text-center font-mono text-xs text-muted-foreground"
+        aria-live="polite"
+      >
+        {count ? `${(activeIndex % count) + 1} of ${count}` : "0 of 0"}
+      </span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        disabled={!count}
+        onClick={() => navigate(-1)}
+        aria-label="Previous match"
+        title="Previous match"
+      >
+        <ChevronUp />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        disabled={!count}
+        onClick={() => navigate(1)}
+        aria-label="Next match"
+        title="Next match"
+      >
+        <ChevronDown />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={onClose}
+        aria-label="Close find"
+        title="Close find"
+      >
+        <X />
+      </Button>
+    </div>
   );
 }
 
@@ -520,7 +628,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
   };
 
   return (
-    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b bg-background/95 py-1.5 text-muted-foreground backdrop-blur">
+    <div className="flex flex-wrap items-center gap-0.5 border-b py-1.5 text-muted-foreground">
       <ToolbarButton
         label="Paragraph"
         active={state.paragraph}
@@ -761,7 +869,15 @@ function DeleteDialog() {
   );
 }
 
-const WysiwygEditor = memo(function WysiwygEditor() {
+const WysiwygEditor = memo(function WysiwygEditor({
+  open,
+  query,
+  activeIndex,
+  inputRef,
+  onQueryChange,
+  onActiveIndexChange,
+  onClose,
+}: FindControlsProps) {
   const {
     draft,
     noteId,
@@ -775,18 +891,24 @@ const WysiwygEditor = memo(function WysiwygEditor() {
   const notesRef = useRef(notes);
   const confettiEnabled = useRef(true);
   const [confettiBurst, setConfettiBurst] = useState(0);
+  const [findRanges, setFindRanges] = useState<
+    ReturnType<typeof findTextRanges>
+  >([]);
+  const queryRef = useRef(query);
+  queryRef.current = query;
   notesRef.current = notes;
   const suggestion = useMemo(
     () => wikiLinkSuggestion(() => notesRef.current),
     [],
   );
   const editor = useEditor({
-    extensions: [...editorExtensions(), suggestion],
+    extensions: [...editorExtensions(), FindInPage, suggestion],
     content: draft().content,
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
     onUpdate: ({ editor, transaction }) => {
       changeContent(editor.getJSON());
+      setFindRanges(findTextRanges(transaction.doc, queryRef.current));
       if (
         confettiEnabled.current &&
         completedTaskCount(transaction.doc.toJSON()) >
@@ -803,6 +925,27 @@ const WysiwygEditor = memo(function WysiwygEditor() {
       },
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    setFindRanges(findTextRanges(editor.state.doc, open ? query : ""));
+  }, [editor, open, query]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const index = findRanges.length ? activeIndex % findRanges.length : 0;
+    setFindInPage(editor, open ? query : "", index);
+    const range = findRanges[index];
+    if (!open || !range) return;
+    requestAnimationFrame(() => {
+      const node = editor.view.domAtPos(range.from).node;
+      (node instanceof HTMLElement ? node : node.parentElement)?.scrollIntoView(
+        {
+          block: "center",
+        },
+      );
+    });
+  }, [editor, open, query, activeIndex, findRanges]);
 
   useEffect(() => {
     const update = (settings: AppSettings) => {
@@ -890,7 +1033,24 @@ const WysiwygEditor = memo(function WysiwygEditor() {
       className="tiptap-editor group/editor relative"
     >
       <TaskConfetti burst={confettiBurst} />
-      <EditorToolbar editor={editor} />
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur">
+        {open ? (
+          <FindStrip
+            open={open}
+            query={query}
+            activeIndex={activeIndex}
+            count={findRanges.length}
+            inputRef={inputRef}
+            onQueryChange={onQueryChange}
+            onActiveIndexChange={onActiveIndexChange}
+            onClose={() => {
+              onClose();
+              editor.commands.focus();
+            }}
+          />
+        ) : null}
+        <EditorToolbar editor={editor} />
+      </div>
       <div className="relative">
         <DragHandle editor={editor}>
           <div className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/50 hover:bg-muted hover:text-foreground cursor-grab active:cursor-grabbing opacity-0 transition-opacity group-hover/editor:opacity-100">
@@ -903,6 +1063,88 @@ const WysiwygEditor = memo(function WysiwygEditor() {
   );
 });
 
+function MarkdownEditor({
+  source,
+  unsupportedReasons,
+  onSourceChange,
+  onConvert,
+  open,
+  query,
+  activeIndex,
+  inputRef,
+  onQueryChange,
+  onActiveIndexChange,
+  onClose,
+}: FindControlsProps & {
+  source: string;
+  unsupportedReasons: string[];
+  onSourceChange(source: string): void;
+  onConvert(): void;
+}) {
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const matches = useMemo(
+    () => literalMatchOffsets(source, open ? query : ""),
+    [source, open, query],
+  );
+  const selectMatch = (index: number, focus = false) => {
+    const match = matches[index];
+    if (!match || !textarea.current) return;
+    if (focus) textarea.current.focus();
+    textarea.current.setSelectionRange(match.from, match.to);
+  };
+
+  useEffect(() => {
+    const match = matches[matches.length ? activeIndex % matches.length : 0];
+    if (match && textarea.current) {
+      textarea.current.setSelectionRange(match.from, match.to);
+    }
+  }, [activeIndex, matches]);
+
+  return (
+    <div className="space-y-3">
+      {open ? (
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur">
+          <FindStrip
+            open={open}
+            query={query}
+            activeIndex={activeIndex}
+            count={matches.length}
+            inputRef={inputRef}
+            onQueryChange={onQueryChange}
+            onActiveIndexChange={onActiveIndexChange}
+            onNavigate={(index) => selectMatch(index, true)}
+            onClose={() => {
+              onClose();
+              textarea.current?.focus();
+            }}
+          />
+        </div>
+      ) : null}
+      {unsupportedReasons.length ? (
+        <Card className="gap-3 border-border bg-muted/40 py-4 shadow-none">
+          <CardContent className="space-y-3 text-sm text-foreground">
+            <p>
+              Markdown mode is protecting {unsupportedReasons.join(", ")} from a
+              lossy visual save.
+            </p>
+            <Button size="sm" variant="outline" onClick={onConvert}>
+              Convert to supported Markdown
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+      <Textarea
+        ref={textarea}
+        value={source}
+        onChange={(event) => onSourceChange(event.target.value)}
+        aria-label="Markdown source"
+        spellCheck={false}
+        className="min-h-[36rem] resize-y font-mono text-sm leading-6"
+      />
+    </div>
+  );
+}
+
 const statusLabel = {
   saved: "Saved",
   saving: "Saving…",
@@ -911,7 +1153,7 @@ const statusLabel = {
   error: "Error",
 };
 
-export function NoteEditor() {
+export function NoteEditor({ findRequest = 0 }: { findRequest?: number }) {
   const {
     note,
     draft,
@@ -925,6 +1167,28 @@ export function NoteEditor() {
     convertSource,
     retry,
   } = useNotes();
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [activeFindIndex, setActiveFindIndex] = useState(0);
+  const findInput = useRef<HTMLInputElement>(null);
+
+  const closeFind = () => {
+    setFindOpen(false);
+    setFindQuery("");
+    setActiveFindIndex(0);
+  };
+  const openFind = () => {
+    setFindOpen(true);
+    requestAnimationFrame(() => findInput.current?.select());
+  };
+
+  useEffect(() => {
+    closeFind();
+  }, [note?.id]);
+
+  useEffect(() => {
+    if (findRequest) openFind();
+  }, [findRequest]);
 
   if (loading) {
     return (
@@ -961,14 +1225,20 @@ export function NoteEditor() {
               <Button
                 size="xs"
                 variant={draft.mode === "wysiwyg" ? "secondary" : "ghost"}
-                onClick={() => setMode("wysiwyg")}
+                onClick={() => {
+                  closeFind();
+                  setMode("wysiwyg");
+                }}
               >
                 Write
               </Button>
               <Button
                 size="xs"
                 variant={draft.mode === "source" ? "secondary" : "ghost"}
-                onClick={() => setMode("source")}
+                onClick={() => {
+                  closeFind();
+                  setMode("source");
+                }}
               >
                 Markdown
               </Button>
@@ -983,6 +1253,15 @@ export function NoteEditor() {
               >
                 {statusLabel[status]}
               </Badge>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={openFind}
+                aria-label="Find in note"
+                title="Find in note"
+              >
+                <Search />
+              </Button>
               <DeleteDialog />
             </div>
           </div>
@@ -1007,31 +1286,36 @@ export function NoteEditor() {
         ) : null}
 
         {draft.mode === "wysiwyg" ? (
-          <WysiwygEditor key={resetKey} />
+          <WysiwygEditor
+            key={resetKey}
+            open={findOpen}
+            query={findQuery}
+            activeIndex={activeFindIndex}
+            inputRef={findInput}
+            onQueryChange={(query) => {
+              setFindQuery(query);
+              setActiveFindIndex(0);
+            }}
+            onActiveIndexChange={setActiveFindIndex}
+            onClose={closeFind}
+          />
         ) : (
-          <div className="space-y-3">
-            {draft.unsupportedReasons.length ? (
-              <Card className="gap-3 border-border bg-muted/40 py-4 shadow-none">
-                <CardContent className="space-y-3 text-sm text-foreground">
-                  <p>
-                    Markdown mode is protecting{" "}
-                    {draft.unsupportedReasons.join(", ")} from a lossy visual
-                    save.
-                  </p>
-                  <Button size="sm" variant="outline" onClick={convertSource}>
-                    Convert to supported Markdown
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : null}
-            <Textarea
-              value={draft.source}
-              onChange={(event) => changeSource(event.target.value)}
-              aria-label="Markdown source"
-              spellCheck={false}
-              className="min-h-[36rem] resize-y font-mono text-sm leading-6"
-            />
-          </div>
+          <MarkdownEditor
+            source={draft.source}
+            unsupportedReasons={draft.unsupportedReasons}
+            onSourceChange={changeSource}
+            onConvert={convertSource}
+            open={findOpen}
+            query={findQuery}
+            activeIndex={activeFindIndex}
+            inputRef={findInput}
+            onQueryChange={(query) => {
+              setFindQuery(query);
+              setActiveFindIndex(0);
+            }}
+            onActiveIndexChange={setActiveFindIndex}
+            onClose={closeFind}
+          />
         )}
       </div>
       <ConflictDialogs />

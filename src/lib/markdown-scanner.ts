@@ -1,4 +1,4 @@
-import type { NoteId } from "./contracts.ts";
+import type { ContentBlockType, NoteId } from "./contracts.ts";
 import { parseDeadlineInput } from "./dates.ts";
 
 export interface ScannedBlock {
@@ -32,6 +32,7 @@ export interface IndexedMarkdown {
   tasks: ScannedTask[];
   tags: string[];
   attributes: Record<string, string>;
+  blockTypes: ContentBlockType[];
   wordCount: number;
 }
 
@@ -121,6 +122,7 @@ export function scanMarkdown(source: string): IndexedMarkdown {
   const links: ScannedLink[] = [];
   const tasks: ScannedTask[] = [];
   const tags = new Set<string>();
+  const blockTypes = new Set<ContentBlockType>();
   const attributes: Record<string, string> = {};
   const searchable: string[] = [];
   let title = "Untitled";
@@ -148,11 +150,13 @@ export function scanMarkdown(source: string): IndexedMarkdown {
       continue;
     }
 
-    const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})(.*)$/);
     if (fenceMatch) {
       const marker = fenceMatch[1][0];
       if (!fence) {
         fence = marker;
+        const info = fenceMatch[2].trim().split(/\s+/u)[0];
+        blockTypes.add(info === "tldraw" ? "tldraw" : "codeBlock");
         awaitingCodeAnchor = false;
       } else if (fence === marker) {
         fence = null;
@@ -199,6 +203,7 @@ export function scanMarkdown(source: string): IndexedMarkdown {
     const blockId = blockMatch?.[1]?.toLowerCase() ?? null;
     const task = visible.match(/^\s*[-+*]\s+\[([ xX])\]\s+(.+?)\s*$/u);
     if (task) {
+      blockTypes.add("taskItem");
       // ponytail: table rows use the task's first Markdown line; expand to
       // continuation paragraphs only when real notes need them.
       tasks.push({
@@ -209,6 +214,8 @@ export function scanMarkdown(source: string): IndexedMarkdown {
         deadline: parseTaskDeadline(task[2]),
       });
     }
+    if (/^\s*>/u.test(visible)) blockTypes.add("blockquote");
+    if (/!\[[^\]]*\]\([^)]+\)/u.test(visible)) blockTypes.add("image");
     const kind = /^\s{0,3}#{1,6}\s+/u.test(visible)
       ? "heading"
       : /^\s*(?:[-+*]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)/u.test(visible)
@@ -268,6 +275,7 @@ export function scanMarkdown(source: string): IndexedMarkdown {
     tasks,
     tags: Array.from(tags),
     attributes,
+    blockTypes: Array.from(blockTypes),
     wordCount: searchText ? searchText.split(/\s+/u).length : 0,
   };
 }

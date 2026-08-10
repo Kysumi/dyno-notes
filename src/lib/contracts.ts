@@ -2,6 +2,15 @@ export type NoteId = string;
 
 export type NoteKind = "page" | "journal";
 
+export const CONTENT_BLOCK_TYPES = [
+  "blockquote",
+  "codeBlock",
+  "image",
+  "taskItem",
+  "tldraw",
+] as const;
+export type ContentBlockType = (typeof CONTENT_BLOCK_TYPES)[number];
+
 export interface NoteSummary {
   id: NoteId;
   kind: NoteKind;
@@ -10,6 +19,7 @@ export interface NoteSummary {
   wordCount: number;
   tags: string[];
   attributes: Record<string, string>;
+  blockTypes: ContentBlockType[];
   openTasks: number;
   completedTasks: number;
 }

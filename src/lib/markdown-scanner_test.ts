@@ -102,6 +102,34 @@ Deno.test("scanner extracts task rows outside fenced code", () => {
   ]);
 });
 
+Deno.test("scanner identifies distinct content block types outside fences", () => {
+  const scanned = scanMarkdown(`# Blocks
+
+  \`\`\`\`tldraw   
+{"records":[]}
+  \`\`\`\`
+
+![Diagram](diagram.png)
+![Duplicate](duplicate.png)
+> A quote
+- [ ] A task
+
+\`\`\`md
+![Ignored](inside.png)
+> Ignored quote
+- [ ] Ignored task
+\`\`\`
+`);
+
+  deepStrictEqual(scanned.blockTypes, [
+    "tldraw",
+    "image",
+    "blockquote",
+    "taskItem",
+    "codeBlock",
+  ]);
+});
+
 Deno.test("scanner extracts a task deadline from a due:: marker", () => {
   const scanned = scanMarkdown(`- [ ] Renew passport due:: 2026-08-01\n`);
 

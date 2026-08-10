@@ -126,7 +126,8 @@ export function HelpPage({ onClose }: { onClose(): void }) {
             <Card className="mt-8 gap-0 py-0 shadow-none">
               <CardContent className="grid p-0 sm:grid-cols-2">
                 {[
-                  ["Search", "⌘/Ctrl K or P"],
+                  ["Workspace search", "⌘/Ctrl K or P"],
+                  ["Find in current note", "⌘/Ctrl F"],
                   ["Task", "- [ ] Follow up"],
                   ["Page link", "[["],
                   ["Tag / attribute", "#work · status:: active"],
@@ -232,12 +233,16 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                   </p>
                 </HelpRow>
                 <Separator />
-                <HelpRow title="Find a note">
+                <HelpRow title="Find notes and text">
                   <p>
                     Press <Syntax>⌘/Ctrl K</Syntax> or <Syntax>⌘/Ctrl P</Syntax>{" "}
-                    to search titles and note content. Results include a
-                    matching excerpt. Use Back and Forward in the header to
-                    retrace your navigation.
+                    to search the whole workspace. Results include matching
+                    titles, note content, and excerpts. Use Back and Forward in
+                    the header to retrace your navigation.
+                  </p>
+                  <p>
+                    Press <Syntax>⌘/Ctrl F</Syntax> while editing to find text
+                    in the current note, including unsaved changes.
                   </p>
                 </HelpRow>
               </HelpSection>
@@ -284,13 +289,14 @@ export function HelpPage({ onClose }: { onClose(): void }) {
                 <Separator />
                 <HelpRow title="Filter">
                   <p>
-                    Filter a view by page title, tag, attribute, or whether the
-                    note has open tasks. Filters combine, and Reset clears them.
+                    Filter a view by page title, tag, attribute, content block
+                    type, or whether the note has open tasks. Filters combine,
+                    and Reset clears them.
                   </p>
                   <p>
                     A view filters notes first. In{" "}
                     <strong className="text-foreground">Tasks</strong> mode it
-                    then lists tasks from those matching notes.
+                    then lists tasks only from notes matching every page filter.
                   </p>
                 </HelpRow>
                 <Separator />
