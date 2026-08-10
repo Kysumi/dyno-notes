@@ -33,7 +33,6 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: "lts"
-          cache: true
       - run: deno task build
       - run: deno desktop --include dist -P=desktop --backend ${{ matrix.backend }} --target ${{ matrix.target }} --output "${{ matrix.output }}" main.ts
       - uses: actions/upload-artifact@v7
