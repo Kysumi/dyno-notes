@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./icons/app.png" alt="Dyno Notes logo" width="160">
+</p>
+
 # Dyno Notes
 
 Dyno Notes is a desktop note-taking app inspired by
