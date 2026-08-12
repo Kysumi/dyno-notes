@@ -33,7 +33,12 @@
     "backend": "webview",
     "app": {
       "name": "Dyno Notes",
-      "identifier": "com.dynonotes.app"
+      "identifier": "com.dynonotes.app",
+      "icons": {
+        "macos": "./icons/app.icns",
+        "windows": "./icons/app.ico",
+        "linux": "./icons/app.png"
+      }
     },
     "output": {
       "macos": "./build/DynoNotes.app",
