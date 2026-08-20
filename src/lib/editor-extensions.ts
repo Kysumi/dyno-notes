@@ -12,6 +12,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
 
+import { ImageNodeView } from "@/components/image-node-view.tsx";
 import { TldrawNodeView } from "@/components/tldraw-node-view.tsx";
 import { type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
@@ -27,6 +28,10 @@ const targetableBlocks = [
   "blockquote",
   "codeBlock",
 ];
+
+const FullscreenImage = Image.extend({
+  addNodeView: () => ReactNodeViewRenderer(ImageNodeView),
+});
 
 export interface FindRange {
   from: number;
@@ -407,7 +412,7 @@ export function editorExtensions() {
     }),
     TaskList,
     TaskItem.configure({ nested: true }),
-    Image.configure({ allowBase64: true }),
+    FullscreenImage.configure({ allowBase64: true }),
     WikiLink,
     TldrawExtension,
     BlockIdentity,
